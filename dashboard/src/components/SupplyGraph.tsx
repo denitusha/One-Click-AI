@@ -22,15 +22,16 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 /* ── SVG data URI icons per role ──────────────────────────── */
+// Each icon is a 64x64 compound SVG: a colored rounded-rect chip + white icon on top
 const NODE_ICONS: Record<string, string> = {
-  // Shopping cart icon for procurement
-  procurement: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>')}`,
-  // Factory / box icon for supplier
-  supplier: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>')}`,
-  // Truck icon for logistics
-  logistics: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>')}`,
-  // Search / database icon for index
-  index: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>')}`,
+  // Shopping cart icon for procurement (purple chip)
+  procurement: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="10" y="10" width="44" height="44" rx="10" fill="#818cf8" fill-opacity="0.3" stroke="#818cf8" stroke-opacity="0.6" stroke-width="2"/><g transform="translate(16,16) scale(1.33)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></g></svg>')}`,
+  // Factory / box icon for supplier (green chip)
+  supplier: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="10" y="10" width="44" height="44" rx="10" fill="#34d399" fill-opacity="0.3" stroke="#34d399" stroke-opacity="0.6" stroke-width="2"/><g transform="translate(16,16) scale(1.33)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></g></svg>')}`,
+  // Truck icon for logistics (orange chip)
+  logistics: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="10" y="10" width="44" height="44" rx="10" fill="#fb923c" fill-opacity="0.3" stroke="#fb923c" stroke-opacity="0.6" stroke-width="2"/><g transform="translate(16,16) scale(1.33)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></g></svg>')}`,
+  // Search icon for index (pink chip)
+  index: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="10" y="10" width="44" height="44" rx="10" fill="#f472b6" fill-opacity="0.3" stroke="#f472b6" stroke-opacity="0.6" stroke-width="2"/><g transform="translate(16,16) scale(1.33)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></g></svg>')}`,
 };
 
 /* ── Edge style by type ──────────────────────────────────── */
@@ -104,66 +105,73 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "text-halign": "center",
         "font-size": fontSize,
         color: "#e2e8f0",
-        "text-margin-y": 8,
-        "background-opacity": 0.9,
-        "border-width": 2,
-        "border-opacity": 0.6,
+        "text-margin-y": 10,
+        "background-color": "#1a2332",
+        "background-opacity": 1,
+        "border-width": 3,
+        "border-opacity": 0.7,
+        shape: "round-rectangle" as any,
         width: nodeSize,
         height: nodeSize,
         "text-wrap": "wrap",
         "text-max-width": isOverview ? "120px" : "100px",
+        "text-background-opacity": 0.7,
+        "text-background-color": "#1e293b",
+        "text-background-padding": "4px",
+        "text-background-shape": "roundrectangle",
+        "corner-radius": 12,
       },
     },
     {
       selector: 'node[role = "procurement"]',
       style: {
-        "background-color": ROLE_COLORS.procurement,
+        "background-color": "#1a2332",
         "border-color": "#6366f1",
-        shape: "diamond" as any,
-        width: procSize,
-        height: procSize,
+        shape: "round-rectangle" as any,
+        width: isOverview ? 70 : 60,
+        height: isOverview ? 70 : 60,
         "background-image": NODE_ICONS.procurement,
-        "background-width": "45%",
-        "background-height": "45%",
-        "background-opacity": 0.9,
+        "background-width": "65%",
+        "background-height": "65%",
       },
     },
     {
       selector: 'node[role = "supplier"]',
       style: {
-        "background-color": ROLE_COLORS.supplier,
+        "background-color": "#1a2332",
         "border-color": "#10b981",
-        shape: "ellipse" as any,
+        shape: "round-rectangle" as any,
+        width: isOverview ? 65 : 55,
+        height: isOverview ? 65 : 55,
         "background-image": NODE_ICONS.supplier,
-        "background-width": "50%",
-        "background-height": "50%",
-        "background-opacity": 0.9,
+        "background-width": "65%",
+        "background-height": "65%",
       },
     },
     {
       selector: 'node[role = "logistics"]',
       style: {
-        "background-color": ROLE_COLORS.logistics,
+        "background-color": "#1a2332",
         "border-color": "#ea580c",
-        shape: "hexagon" as any,
+        shape: "round-rectangle" as any,
+        width: isOverview ? 65 : 55,
+        height: isOverview ? 65 : 55,
         "background-image": NODE_ICONS.logistics,
-        "background-width": "50%",
-        "background-height": "50%",
-        "background-opacity": 0.9,
+        "background-width": "65%",
+        "background-height": "65%",
       },
     },
     {
       selector: 'node[role = "index"]',
       style: {
-        "background-color": ROLE_COLORS.index,
+        "background-color": "#1a2332",
         "border-color": "#ec4899",
         shape: "round-rectangle" as any,
-        width: isOverview ? 70 : 60,
-        height: isOverview ? 48 : 40,
+        width: isOverview ? 65 : 55,
+        height: isOverview ? 65 : 55,
         "background-image": NODE_ICONS.index,
-        "background-width": "50%",
-        "background-height": "50%",
-        "background-opacity": 0.9,
+        "background-width": "65%",
+        "background-height": "65%",
       },
     },
     // Hub nodes (logistics routing cities)
