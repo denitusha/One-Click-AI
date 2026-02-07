@@ -1,0 +1,24 @@
+# ── Core (all services) ──────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+pydantic>=2.10.0
+httpx>=0.28.0
+
+# ── LLM ─────────────────────────────────────────────────────
+openai>=1.60.0
+
+# ── Agent frameworks ────────────────────────────────────────
+langgraph>=0.2.0
+crewai>=0.105.0
+langchain>=0.3.0
+langchain-openai>=0.3.0
+pyautogen>=0.4.0
+
+# ── NANDA Index persistence ─────────────────────────────────
+pymongo>=4.10.0
+
+# ── Event Bus ───────────────────────────────────────────────
+websockets>=14.0
+
+# ── Utilities ───────────────────────────────────────────────
+python-dotenv>=1.0.0
