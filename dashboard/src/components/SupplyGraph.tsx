@@ -21,6 +21,18 @@ const ROLE_COLORS: Record<string, string> = {
   step: "#64748b",       // negotiation step node
 };
 
+/* ── SVG data URI icons per role ──────────────────────────── */
+const NODE_ICONS: Record<string, string> = {
+  // Shopping cart icon for procurement
+  procurement: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>')}`,
+  // Factory / box icon for supplier
+  supplier: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>')}`,
+  // Truck icon for logistics
+  logistics: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>')}`,
+  // Search / database icon for index
+  index: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>')}`,
+};
+
 /* ── Edge style by type ──────────────────────────────────── */
 const EDGE_STYLES: Record<string, { color: string; style: string; width: number }> = {
   discovery: { color: "#a78bfa", style: "dashed", width: 1.5 },
@@ -110,6 +122,10 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         shape: "diamond" as any,
         width: procSize,
         height: procSize,
+        "background-image": NODE_ICONS.procurement,
+        "background-width": "45%",
+        "background-height": "45%",
+        "background-opacity": 0.9,
       },
     },
     {
@@ -118,6 +134,10 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "background-color": ROLE_COLORS.supplier,
         "border-color": "#10b981",
         shape: "ellipse" as any,
+        "background-image": NODE_ICONS.supplier,
+        "background-width": "50%",
+        "background-height": "50%",
+        "background-opacity": 0.9,
       },
     },
     {
@@ -126,6 +146,10 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "background-color": ROLE_COLORS.logistics,
         "border-color": "#ea580c",
         shape: "hexagon" as any,
+        "background-image": NODE_ICONS.logistics,
+        "background-width": "50%",
+        "background-height": "50%",
+        "background-opacity": 0.9,
       },
     },
     {
@@ -136,6 +160,10 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         shape: "round-rectangle" as any,
         width: isOverview ? 70 : 60,
         height: isOverview ? 48 : 40,
+        "background-image": NODE_ICONS.index,
+        "background-width": "50%",
+        "background-height": "50%",
+        "background-opacity": 0.9,
       },
     },
     // Hub nodes (logistics routing cities)
