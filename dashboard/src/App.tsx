@@ -38,6 +38,29 @@ export default function App() {
     initialRatios: [0.3, 0.4, 0.3],
   });
 
+  // ── Horizontal sidebar width resize ──
+  const [sidebarWidth, setSidebarWidth] = useState(380);
+  const handleSidebarDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      // Sidebar is on the right, so dragging left increases width
+      const delta = startX - moveEvent.clientX;
+      setSidebarWidth(Math.max(280, Math.min(600, startWidth + delta)));
+    };
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [sidebarWidth]);
+
   // ── Auto-disconnect WebSocket once cascade is complete ──
   // All data is already stored in React state; no need to keep the WS alive.
   const didDisconnect = useRef(false);
@@ -190,7 +213,7 @@ export default function App() {
       {/* ── Main content area ──────────────────────────────── */}
       <div className="flex min-h-0 flex-1">
         {/* Left: Supply graph (main area) */}
-        <div className="flex flex-1 flex-col border-r border-slate-700/40">
+        <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2 border-b border-slate-700/30 px-4 py-2">
             <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -226,8 +249,14 @@ export default function App() {
           </div>
         </div>
 
+        {/* ── Horizontal drag divider ── */}
+        <div
+          onMouseDown={handleSidebarDrag}
+          className="w-1.5 shrink-0 cursor-col-resize bg-slate-700/40 transition-colors hover:bg-indigo-500/40"
+        />
+
         {/* Right sidebar: Graph Navigator + Message flow + Execution plan */}
-        <div ref={sidebarRef} className="flex w-[380px] shrink-0 flex-col">
+        <div ref={sidebarRef} className="flex shrink-0 flex-col" style={{ width: sidebarWidth }}>
           {/* Graph Navigator (top section) */}
           <div className="flex flex-col overflow-hidden" style={{ height: heights[0] }}>
             <div className="min-h-0 flex-1 overflow-hidden">
