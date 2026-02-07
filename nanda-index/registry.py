@@ -138,6 +138,22 @@ def _delete_agent_from_mongo(agent_id: str) -> None:
         log.error("MongoDB delete failed for %s: %s", agent_id, exc)
 
 
+def _clear_mongo() -> None:
+    """Drop all agent records from MongoDB on fresh startup.
+
+    Prevents stale entries from previous runs (which may have used different
+    agent IDs or names) from polluting search results and creating duplicate
+    nodes on the dashboard.
+    """
+    if not USE_MONGO or _mongo_col is None:
+        return
+    try:
+        result = _mongo_col.delete_many({})
+        log.info("Cleared %d stale agents from MongoDB.", result.deleted_count)
+    except Exception as exc:
+        log.error("Failed to clear MongoDB: %s", exc)
+
+
 # ---------------------------------------------------------------------------
 # FastAPI application (with lifespan)
 # ---------------------------------------------------------------------------
@@ -145,7 +161,9 @@ def _delete_agent_from_mongo(agent_id: str) -> None:
 @asynccontextmanager
 async def _lifespan(application: FastAPI):
     """Startup / shutdown lifecycle."""
-    _load_from_mongo()
+    _clear_mongo()          # purge stale entries from previous runs
+    _registry.clear()       # also reset in-memory cache
+    _load_from_mongo()      # will be empty after the purge
     log.info(
         "NANDA Index ready  --  port=%s  mongo=%s  agents_loaded=%d",
         INDEX_PORT,

@@ -467,6 +467,58 @@ export function useDashboardState(events: AgentEvent[]) {
       }
     }
 
+    /* ── Deduplicate supplier nodes ──────────────────────────
+     * Stale NANDA Index entries (from MongoDB persistence across restarts)
+     * can cause the same physical supplier to appear under different IDs
+     * (e.g. "supplier-a" vs "Supplier A" vs "Supplier_A").
+     *
+     * Strategy: normalise each supplier ID → lowercase, trim, replace
+     * spaces/underscores with dashes.  If multiple nodes map to the same
+     * canonical key, keep the one that came from AGENT_REGISTERED (it has
+     * `framework` set) and discard the rest, rewriting edge references.
+     */
+    const supplierNodes = [...nodesMap.entries()].filter(
+      ([, n]) => n.role === "supplier",
+    );
+
+    // Build canonical key → best node mapping
+    const canonicalMap = new Map<string, { id: string; node: GraphNode }>();
+    const idRewrites = new Map<string, string>(); // old ID → canonical ID
+
+    for (const [id, node] of supplierNodes) {
+      const canonical = id.toLowerCase().trim().replace(/[\s_]+/g, "-");
+      const existing = canonicalMap.get(canonical);
+
+      if (!existing) {
+        canonicalMap.set(canonical, { id, node });
+      } else {
+        // Prefer the node that has `framework` (came from AGENT_REGISTERED)
+        const existingHasFramework = !!existing.node.framework;
+        const currentHasFramework = !!node.framework;
+
+        if (currentHasFramework && !existingHasFramework) {
+          // Current node is better — rewrite old → current
+          idRewrites.set(existing.id, id);
+          nodesMap.delete(existing.id);
+          canonicalMap.set(canonical, { id, node });
+        } else {
+          // Existing node is better (or both equal) — discard current
+          idRewrites.set(id, existing.id);
+          nodesMap.delete(id);
+        }
+      }
+    }
+
+    // Rewrite edge source/target references for discarded IDs
+    if (idRewrites.size > 0) {
+      for (const e of edges) {
+        const newSource = idRewrites.get(e.source);
+        if (newSource) e.source = newSource;
+        const newTarget = idRewrites.get(e.target);
+        if (newTarget) e.target = newTarget;
+      }
+    }
+
     /* ── Build timeline ── */
     const completedPhases = new Set<string>();
     const activePhases = new Set<string>();
