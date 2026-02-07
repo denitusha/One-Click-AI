@@ -1,72 +1,72 @@
-import { useMemo } from "react";
-import { AlertTriangle, Shield, TrendingUp } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, Shield, TrendingUp, ChevronDown } from "lucide-react";
 import type { WsEvent } from "../hooks/useWebSocket";
 
 // ── Risk model per agent ──────────────────────────────────────────────
 interface RiskEntry {
   agentId: string;
   label: string;
-  risks: { name: string; score: number; color: string }[];
+  risks: { name: string; score: number; color: string; description: string; impact: string; mitigation: string }[];
   totalScore: number;
 }
 
 const RISK_DEFINITIONS: {
   agentId: string;
   label: string;
-  risks: { name: string; base: number; color: string }[];
+  risks: { name: string; base: number; color: string; description: string; impact: string; mitigation: string }[];
 }[] = [
   {
     agentId: "nanda:procurement-agent",
     label: "Procurement",
     risks: [
-      { name: "Dependency",    base: 5, color: "#ffd700" },
-      { name: "Single Source", base: 1, color: "#ff9800" },
-      { name: "Lead Time",    base: 2, color: "#00bcd4" },
+      { name: "Dependency",    base: 5, color: "#ffd700", description: "Heavy reliance on supplier network for sourcing", impact: "Supply chain delays if key suppliers fail", mitigation: "Diversify supplier portfolio and maintain buffer inventory" },
+      { name: "Single Source", base: 1, color: "#ff9800", description: "Limited alternative options for critical components", impact: "Production halt if primary source becomes unavailable", mitigation: "Qualify backup suppliers for critical items" },
+      { name: "Lead Time",     base: 2, color: "#00bcd4", description: "Extended procurement cycles affecting schedule", impact: "Project delays and increased carrying costs", mitigation: "Forecast demand early and negotiate flexible terms" },
     ],
   },
   {
     agentId: "nanda:supplier-agent-1",
     label: "Supplier A",
     risks: [
-      { name: "Dependency",    base: 3, color: "#ffd700" },
-      { name: "Single Source", base: 2, color: "#ff9800" },
-      { name: "Lead Time",    base: 4, color: "#00bcd4" },
+      { name: "Dependency",    base: 3, color: "#ffd700", description: "High volume of orders concentrated with one supplier", impact: "Supplier overwhelm may lead to quality issues", mitigation: "Load balance orders across multiple suppliers" },
+      { name: "Single Source", base: 2, color: "#ff9800", description: "Limited backup options if supplier capacity reduced", impact: "Cannot fulfill orders if supplier is unavailable", mitigation: "Establish relationships with alternative suppliers" },
+      { name: "Lead Time",     base: 4, color: "#00bcd4", description: "Supplier has longer production cycles than competitors", impact: "Increases project timeline and customer wait time", mitigation: "Pre-order or negotiate expedited fulfillment options" },
     ],
   },
   {
     agentId: "nanda:supplier-agent-2",
     label: "Supplier B",
     risks: [
-      { name: "Dependency",    base: 3, color: "#ffd700" },
-      { name: "Single Source", base: 1, color: "#ff9800" },
-      { name: "Lead Time",    base: 3, color: "#00bcd4" },
+      { name: "Dependency",    base: 3, color: "#ffd700", description: "Moderate order concentration risk", impact: "Quality or availability issues if overloaded", mitigation: "Monitor supplier load and diversify orders" },
+      { name: "Single Source", base: 1, color: "#ff9800", description: "Some alternative sourcing options available", impact: "Manageable through current backups", mitigation: "Maintain active relationships with alternatives" },
+      { name: "Lead Time",     base: 3, color: "#00bcd4", description: "Competitive lead times but subject to market conditions", impact: "Potential delays during peak seasons", mitigation: "Advance planning and seasonal forecasting" },
     ],
   },
   {
     agentId: "nanda:manufacturer-agent",
     label: "Manufacturer",
     risks: [
-      { name: "Dependency",    base: 4, color: "#ffd700" },
-      { name: "Single Source", base: 3, color: "#ff9800" },
-      { name: "Lead Time",    base: 5, color: "#00bcd4" },
+      { name: "Dependency",    base: 4, color: "#ffd700", description: "Complex assembly process with multiple dependencies", impact: "Any supplier failure cascades to production halt", mitigation: "Implement robust supply chain monitoring" },
+      { name: "Single Source", base: 3, color: "#ff9800", description: "Limited manufacturing capacity and capabilities", impact: "Cannot quickly scale production if demand spikes", mitigation: "Invest in flexible manufacturing systems" },
+      { name: "Lead Time",     base: 5, color: "#00bcd4", description: "Long assembly and quality checks extend timelines", impact: "Highest contribution to overall project duration", mitigation: "Optimize assembly process and parallelize workflows" },
     ],
   },
   {
     agentId: "nanda:logistics-agent",
     label: "Logistics",
     risks: [
-      { name: "Dependency",    base: 2, color: "#ffd700" },
-      { name: "Single Source", base: 2, color: "#ff9800" },
-      { name: "Lead Time",    base: 3, color: "#00bcd4" },
+      { name: "Dependency",    base: 2, color: "#ffd700", description: "Reliance on carrier network and routes", impact: "Shipping delays if carriers unavailable", mitigation: "Contract with multiple carriers and maintain contingency routes" },
+      { name: "Single Source", base: 2, color: "#ff9800", description: "Limited backup shipping options for certain routes", impact: "Delivery delays if primary carrier fails", mitigation: "Establish relationships with secondary carriers" },
+      { name: "Lead Time",     base: 3, color: "#00bcd4", description: "Variable transit times depending on route and season", impact: "Delivery date uncertainty", mitigation: "Plan for buffer time and use expedited shipping when needed" },
     ],
   },
   {
     agentId: "nanda:compliance-agent",
     label: "Compliance",
     risks: [
-      { name: "Dependency",    base: 1, color: "#ffd700" },
-      { name: "Single Source", base: 0, color: "#ff9800" },
-      { name: "Lead Time",    base: 1, color: "#00bcd4" },
+      { name: "Dependency",    base: 1, color: "#ffd700", description: "Regulatory requirements are external and fixed", impact: "Non-compliance can halt shipments", mitigation: "Maintain compliance dashboard and audit regularly" },
+      { name: "Single Source", base: 0, color: "#ff9800", description: "Compliance checks are deterministic and independent", impact: "Minimal single-point failure risk", mitigation: "N/A - inherently low risk" },
+      { name: "Lead Time",     base: 1, color: "#00bcd4", description: "Compliance verification is relatively quick", impact: "Minimal impact on project timeline", mitigation: "Plan compliance checks early in process" },
     ],
   },
 ];
@@ -82,6 +82,8 @@ interface Props {
 }
 
 export default function RiskPanel({ events }: Props) {
+  const [expandedRisk, setExpandedRisk] = useState<string | null>(null);
+
   // Compute dynamic risk scores: base + message volume factor
   const riskData: RiskEntry[] = useMemo(() => {
     // Count messages per agent
@@ -104,6 +106,9 @@ export default function RiskPanel({ events }: Props) {
         name: r.name,
         score: Math.min(r.base + (r.name === "Dependency" ? activityBonus : 0), 6),
         color: r.color,
+        description: r.description,
+        impact: r.impact,
+        mitigation: r.mitigation,
       }));
 
       const totalScore = risks.reduce((sum, r) => sum + r.score, 0);
@@ -169,52 +174,104 @@ export default function RiskPanel({ events }: Props) {
         <div className="px-3 pb-3 space-y-1">
           {sorted.map((entry) => {
             const level = getRiskLevel(entry.totalScore);
+            const isExpanded = expandedRisk === entry.agentId;
 
             return (
               <div
                 key={entry.agentId}
-                className={`rounded-lg border px-3 py-2.5 ${level.bg} ${level.border} transition-all`}
+                className={`rounded-lg border transition-all cursor-pointer ${level.bg} ${level.border}`}
               >
-                {/* Agent name + score */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-medium text-white/75">{entry.label}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded ${level.bg} ${level.color}`}>
-                      {level.label}
-                    </span>
-                    <span className="text-[10px] font-mono text-white/40">{entry.totalScore}</span>
-                  </div>
-                </div>
-
-                {/* Composite bar */}
-                <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden flex">
-                  {entry.risks.map((risk) => (
-                    <div
-                      key={risk.name}
-                      className="h-full transition-all duration-500"
-                      style={{
-                        width: `${(risk.score / maxScore) * 100}%`,
-                        background: `${risk.color}88`,
-                      }}
-                      title={`${risk.name}: ${risk.score}`}
-                    />
-                  ))}
-                </div>
-
-                {/* Risk breakdown */}
-                <div className="flex gap-3 mt-1.5">
-                  {entry.risks.map((risk) => (
-                    <div key={risk.name} className="flex items-center gap-1">
-                      <div
-                        className="w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{ background: risk.color }}
-                      />
-                      <span className="text-[8px] font-mono text-white/30">
-                        {risk.name.split(" ")[0]} {risk.score}
+                {/* Clickable header */}
+                <button
+                  onClick={() => setExpandedRisk(isExpanded ? null : entry.agentId)}
+                  className="w-full px-3 py-2.5 hover:bg-white/[0.02] transition-all"
+                >
+                  {/* Agent name + score */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-medium text-white/75">{entry.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded ${level.bg} ${level.color}`}>
+                        {level.label}
                       </span>
+                      <span className="text-[10px] font-mono text-white/40">{entry.totalScore}</span>
+                      <ChevronDown
+                        size={12}
+                        className={`text-white/40 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      />
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  {/* Composite bar */}
+                  <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden flex">
+                    {entry.risks.map((risk) => (
+                      <div
+                        key={risk.name}
+                        className="h-full transition-all duration-500"
+                        style={{
+                          width: `${(risk.score / maxScore) * 100}%`,
+                          background: `${risk.color}88`,
+                        }}
+                        title={`${risk.name}: ${risk.score}`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Risk breakdown */}
+                  <div className="flex gap-3 mt-1.5">
+                    {entry.risks.map((risk) => (
+                      <div key={risk.name} className="flex items-center gap-1">
+                        <div
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{ background: risk.color }}
+                        />
+                        <span className="text-[8px] font-mono text-white/30">
+                          {risk.name.split(" ")[0]} {risk.score}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </button>
+
+                {/* Expanded details */}
+                {isExpanded && (
+                  <div className="border-t border-white/10 px-3 py-2.5 bg-white/[0.01] space-y-2">
+                    {entry.risks.map((risk) => (
+                      <div key={risk.name} className="space-y-1">
+                        {/* Risk name + score */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: risk.color }}
+                            />
+                            <span className="text-[10px] font-semibold text-white/70">{risk.name}</span>
+                          </div>
+                          <span
+                            className="text-[9px] font-mono font-bold px-2 py-0.5 rounded"
+                            style={{ background: `${risk.color}30`, color: risk.color }}
+                          >
+                            {risk.score}/6
+                          </span>
+                        </div>
+
+                        {/* Description */}
+                        <div className="text-[8px] text-white/50 font-mono ml-4">
+                          <span className="text-white/40 font-semibold">Why:</span> {risk.description}
+                        </div>
+
+                        {/* Impact */}
+                        <div className="text-[8px] text-white/50 font-mono ml-4">
+                          <span className="text-white/40 font-semibold">Impact:</span> {risk.impact}
+                        </div>
+
+                        {/* Mitigation */}
+                        <div className="text-[8px] text-white/50 font-mono ml-4 pb-1.5">
+                          <span className="text-accent-green/70 font-semibold">Mitigation:</span> {risk.mitigation}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
