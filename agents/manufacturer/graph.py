@@ -15,6 +15,9 @@ from shared.agent_base import (
     call_agent_endpoint,
     discover_agents,
     fetch_agent_facts,
+    report_discovery_path,
+    report_policy_record,
+    report_trust_record,
     resolve_adaptive,
     send_agent_message,
 )
@@ -145,6 +148,30 @@ async def request_compliance(state: ManufacturerState) -> ManufacturerState:
             explanation=f"Compliance result: compliant={result.get('compliant')}.",
         ))
 
+    # ── Report: compliance discovery path ──
+    await report_discovery_path(
+        correlation_id=cid,
+        query={"role": "compliance", "resolution": resolution_method},
+        matched_agents=[ca_addr.agent_id],
+    )
+    # ── Report: compliance trust ──
+    if ca_facts:
+        await report_trust_record(
+            correlation_id=cid,
+            agent_id=ca_addr.agent_id,
+            reputation_score=ca_facts.reputation_score if ca_facts.reputation_score else 0.5,
+            verified=bool(ca_addr.signature),
+            certification_level=ca_facts.certification.level if ca_facts.certification else "unknown",
+        )
+    # ── Report: policy enforcement ──
+    compliance_result = result or {}
+    await report_policy_record(
+        correlation_id=cid,
+        order_id=order.get("order_id", ""),
+        compliant=compliance_result.get("compliant", True),
+        issues=compliance_result.get("issues", []),
+    )
+
     return {**state, "compliance_result": result}
 
 
@@ -218,6 +245,22 @@ async def request_logistics(state: ManufacturerState) -> ManufacturerState:
             payload=result,
             explanation=f"Route confirmed: {result.get('transport_mode')}, {result.get('estimated_days')} days, ${result.get('cost', 0):,.0f}.",
         ))
+
+    # ── Report: logistics discovery path ──
+    await report_discovery_path(
+        correlation_id=cid,
+        query={"role": "logistics", "resolution": resolution_method},
+        matched_agents=[la_addr.agent_id],
+    )
+    # ── Report: logistics trust ──
+    if la_facts:
+        await report_trust_record(
+            correlation_id=cid,
+            agent_id=la_addr.agent_id,
+            reputation_score=la_facts.reputation_score if la_facts.reputation_score else 0.5,
+            verified=bool(la_addr.signature),
+            certification_level=la_facts.certification.level if la_facts.certification else "unknown",
+        )
 
     return {**state, "logistics_result": result}
 

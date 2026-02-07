@@ -21,6 +21,9 @@ from shared.agent_base import (
     fetch_agent_facts,
     notify_cascade_complete,
     notify_cascade_start,
+    report_discovery_path,
+    report_final_plan,
+    report_trust_record,
     resolve_adaptive,
     resolve_with_context_to_endpoint,
     send_agent_message,
@@ -193,6 +196,23 @@ async def discover_suppliers_node(state: ProcurementState) -> ProcurementState:
             f"Methods: {', '.join(s['resolution_method'] for s in resolved_suppliers)}"
         ),
     ))
+
+    # ── Report: discovery paths ──
+    await report_discovery_path(
+        correlation_id=state["correlation_id"],
+        query={"role": "supplier", "resolution": "adaptive + two_step_facts"},
+        matched_agents=[s["agent_id"] for s in resolved_suppliers],
+    )
+
+    # ── Report: trust verification for each supplier ──
+    for s in resolved_suppliers:
+        await report_trust_record(
+            correlation_id=state["correlation_id"],
+            agent_id=s["agent_id"],
+            reputation_score=s.get("reputation_score", 0.5),
+            verified=s.get("signature_verified", False),
+            certification_level=s.get("certification_level", "unknown"),
+        )
 
     return {**state, "discovered_suppliers": resolved_suppliers}
 
@@ -434,6 +454,58 @@ async def request_manufacturing(state: ProcurementState) -> ProcurementState:
             payload=result,
             explanation=f"Manufacturing response: {result.get('notes', 'confirmed')}",
         ))
+
+    # ── Report: final execution plan ──
+    order = state.get("order", {})
+    best_q = state.get("best_quote", {})
+    neg = state.get("negotiation_result", {})
+    agreed_price = order.get("agreed_price", neg.get("total_price", best_q.get("total_price", 0)))
+    lead_time = order.get("agreed_lead_time_days", neg.get("lead_time_days", best_q.get("lead_time_days", 0)))
+
+    mfg_schedule = (result or {}).get("assembly_schedule", {})
+    logistics_info = (result or {}).get("logistics", {})
+
+    await report_final_plan(
+        correlation_id=state["correlation_id"],
+        plan={
+            "order_id": order.get("order_id", ""),
+            "supplier_id": order.get("supplier_id", ""),
+            "delivery_address": order.get("delivery_address", "Maranello, Italy"),
+            "agreed_price": agreed_price,
+            "lead_time_days": lead_time,
+            "manufacturing": {
+                "start": mfg_schedule.get("assembly_start", ""),
+                "end": mfg_schedule.get("assembly_end", ""),
+                "total_days": mfg_schedule.get("total_days", 0),
+            },
+            "logistics": {
+                "origin": logistics_info.get("origin", ""),
+                "destination": logistics_info.get("destination", ""),
+                "transport_mode": logistics_info.get("transport_mode", ""),
+                "shipping_days": logistics_info.get("estimated_days", 0),
+                "shipping_cost": logistics_info.get("cost", 0),
+            },
+            "components_count": len(order.get("components", [])),
+        },
+        total_cost=float(agreed_price) if agreed_price else 0.0,
+        total_lead_time_days=int(lead_time) if lead_time else 0,
+    )
+
+    # ── Report: manufacturer discovery path ──
+    await report_discovery_path(
+        correlation_id=state["correlation_id"],
+        query={"role": "manufacturer", "resolution": "adaptive"},
+        matched_agents=[mfg_addr.agent_id],
+    )
+    # ── Report: manufacturer trust ──
+    if mfg_facts:
+        await report_trust_record(
+            correlation_id=state["correlation_id"],
+            agent_id=mfg_addr.agent_id,
+            reputation_score=mfg_facts.reputation_score if mfg_facts.reputation_score else 0.5,
+            verified=bool(mfg_addr.signature),
+            certification_level=mfg_facts.certification.level if mfg_facts.certification else "unknown",
+        )
 
     report = await notify_cascade_complete(state["correlation_id"])
     return {**state, "manufacturing_result": result, "report": report}

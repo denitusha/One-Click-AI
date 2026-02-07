@@ -131,6 +131,78 @@ async def start_cascade(req: StartCascade):
     return {"status": "started", "correlation_id": req.correlation_id}
 
 
+class DiscoveryPathPayload(BaseModel):
+    correlation_id: str
+    query: dict
+    matched_agents: list[str]
+
+
+class TrustRecordPayload(BaseModel):
+    correlation_id: str
+    agent_id: str
+    reputation_score: float
+    verified: bool
+    certification_level: str = "unknown"
+
+
+class PolicyRecordPayload(BaseModel):
+    correlation_id: str
+    order_id: str
+    compliant: bool
+    issues: list[str] = []
+
+
+class FinalPlanPayload(BaseModel):
+    correlation_id: str
+    plan: dict
+    total_cost: float = 0.0
+    total_lead_time_days: int = 0
+
+
+@app.post("/cascade/{correlation_id}/discovery")
+async def add_discovery(correlation_id: str, payload: DiscoveryPathPayload):
+    """Record a NANDA discovery path in the report."""
+    builder = builders.get(correlation_id)
+    if not builder:
+        return {"error": "Unknown cascade"}
+    builder.add_discovery_path(payload.query, payload.matched_agents)
+    return {"status": "ok"}
+
+
+@app.post("/cascade/{correlation_id}/trust")
+async def add_trust(correlation_id: str, payload: TrustRecordPayload):
+    """Record a trust verification entry in the report."""
+    builder = builders.get(correlation_id)
+    if not builder:
+        return {"error": "Unknown cascade"}
+    builder.add_trust_record(payload.agent_id, payload.reputation_score, payload.verified)
+    # Also store certification_level in the record
+    builder.trust_verification[-1]["certification_level"] = payload.certification_level
+    return {"status": "ok"}
+
+
+@app.post("/cascade/{correlation_id}/policy")
+async def add_policy(correlation_id: str, payload: PolicyRecordPayload):
+    """Record a policy enforcement entry in the report."""
+    builder = builders.get(correlation_id)
+    if not builder:
+        return {"error": "Unknown cascade"}
+    builder.add_policy_record(payload.order_id, payload.compliant, payload.issues)
+    return {"status": "ok"}
+
+
+@app.post("/cascade/{correlation_id}/plan")
+async def set_final_plan(correlation_id: str, payload: FinalPlanPayload):
+    """Set the final execution plan with cost and timing."""
+    builder = builders.get(correlation_id)
+    if not builder:
+        return {"error": "Unknown cascade"}
+    builder.final_plan = payload.plan
+    builder.total_cost = payload.total_cost
+    builder.total_lead_time_days = payload.total_lead_time_days
+    return {"status": "ok"}
+
+
 @app.post("/cascade/{correlation_id}/complete")
 async def complete_cascade(correlation_id: str):
     """Finalize a cascade and generate the Network Coordination Report."""

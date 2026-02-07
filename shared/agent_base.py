@@ -238,6 +238,92 @@ async def notify_cascade_complete(correlation_id: str) -> dict | None:
             return None
 
 
+async def report_discovery_path(
+    correlation_id: str, query: dict, matched_agents: list[str]
+) -> None:
+    """Record a NANDA discovery path in the coordination report."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            await client.post(
+                f"{COORDINATOR_URL}/cascade/{correlation_id}/discovery",
+                json={
+                    "correlation_id": correlation_id,
+                    "query": query,
+                    "matched_agents": matched_agents,
+                },
+            )
+        except Exception as exc:
+            print(f"[Report] Discovery path recording failed: {exc}")
+
+
+async def report_trust_record(
+    correlation_id: str,
+    agent_id: str,
+    reputation_score: float,
+    verified: bool,
+    certification_level: str = "unknown",
+) -> None:
+    """Record a trust/verification entry in the coordination report."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            await client.post(
+                f"{COORDINATOR_URL}/cascade/{correlation_id}/trust",
+                json={
+                    "correlation_id": correlation_id,
+                    "agent_id": agent_id,
+                    "reputation_score": reputation_score,
+                    "verified": verified,
+                    "certification_level": certification_level,
+                },
+            )
+        except Exception as exc:
+            print(f"[Report] Trust record recording failed: {exc}")
+
+
+async def report_policy_record(
+    correlation_id: str,
+    order_id: str,
+    compliant: bool,
+    issues: list[str] | None = None,
+) -> None:
+    """Record a policy enforcement entry in the coordination report."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            await client.post(
+                f"{COORDINATOR_URL}/cascade/{correlation_id}/policy",
+                json={
+                    "correlation_id": correlation_id,
+                    "order_id": order_id,
+                    "compliant": compliant,
+                    "issues": issues or [],
+                },
+            )
+        except Exception as exc:
+            print(f"[Report] Policy record recording failed: {exc}")
+
+
+async def report_final_plan(
+    correlation_id: str,
+    plan: dict,
+    total_cost: float = 0.0,
+    total_lead_time_days: int = 0,
+) -> None:
+    """Set the final execution plan in the coordination report."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            await client.post(
+                f"{COORDINATOR_URL}/cascade/{correlation_id}/plan",
+                json={
+                    "correlation_id": correlation_id,
+                    "plan": plan,
+                    "total_cost": total_cost,
+                    "total_lead_time_days": total_lead_time_days,
+                },
+            )
+        except Exception as exc:
+            print(f"[Report] Final plan recording failed: {exc}")
+
+
 async def call_agent_endpoint(url: str, payload: dict) -> dict | None:
     """Call another agent's HTTP endpoint directly."""
     async with httpx.AsyncClient(timeout=60) as client:

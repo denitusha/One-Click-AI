@@ -22,6 +22,16 @@ body {
 .react-flow__node { border-radius: 10px !important; }
 .react-flow__edge-text { font-size: 10px !important; fill: #ffffff66 !important; }
 
+/* Kill all edge dash animations (removes green squares / marching ants) */
+.react-flow__edge.animated path,
+.react-flow__edge path {
+  animation: none !important;
+  stroke-dashoffset: 0 !important;
+}
+.react-flow__edge.animated path {
+  stroke-dasharray: none !important;
+}
+
 /* Pulse animation for active agents */
 @keyframes pulse-glow {
   0%   { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.4); }
@@ -44,3 +54,15 @@ body {
   100% { opacity: 0.5; }
 }
 .step-active { animation: step-glow 1.5s ease-in-out infinite; }
+
+/* Hide scrollbar for timeline (still scrollable) */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Highlighted agent node (selected from sidebar) */
+@keyframes highlight-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3); }
+  50%  { box-shadow: 0 0 16px 4px rgba(255, 255, 255, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3); }
+}
+.agent-highlighted { animation: highlight-pulse 1.5s ease-in-out infinite; }

@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { Zap, RotateCcw, Loader2 } from "lucide-react";
 import SupplyGraph from "./components/SupplyGraph";
-import MessageFlow from "./components/MessageFlow";
+import RightPanel from "./components/RightPanel";
 import { useWebSocket } from "./hooks/useWebSocket";
 
 // ── Cascade phase detection ────────────────────────────────────────────
@@ -103,6 +103,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [intentInput, setIntentInput] = useState("Buy all the parts required to assemble a Ferrari");
+  const [highlightedAgentId, setHighlightedAgentId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const { events, connected, clearEvents } = useWebSocket("ws://localhost:8001/ws");
   const phase = useMemo(
@@ -138,6 +140,7 @@ export default function App() {
   const resetAll = useCallback(() => {
     setResult(null);
     clearEvents();
+    setSelectedOrderId(null);
   }, [clearEvents]);
 
   return (
@@ -146,34 +149,34 @@ export default function App() {
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="shrink-0 flex flex-col bg-panel-card border-b border-panel-border">
         {/* Top row: branding + status + actions */}
-        <div className="h-12 flex items-center justify-between px-5">
+        <div className="h-12 flex items-center justify-between px-5 gap-3 min-w-0">
           {/* Left: branding */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <Zap size={18} className="text-accent-green" />
             <span className="text-sm font-semibold tracking-wide">
               <span className="text-accent-green">OneClickAI</span>
-              <span className="text-white/50 font-normal ml-1.5">Supply Chain Agents</span>
+              <span className="text-white/50 font-normal ml-1.5 hidden sm:inline">Supply Chain Agents</span>
             </span>
           </div>
 
           {/* Center: phase + events */}
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-white/40 font-mono uppercase tracking-wider">Phase:</span>
-              <span className={`font-semibold font-mono ${phase.index >= 0 ? "text-accent-green" : "text-white/50"}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <span className="text-white/40 font-mono uppercase tracking-wider shrink-0">Phase:</span>
+              <span className={`font-semibold font-mono truncate ${phase.index >= 0 ? "text-accent-green" : "text-white/50"}`}>
                 {phase.label}
               </span>
             </div>
-            <div className="w-px h-4 bg-panel-border" />
-            <span className="text-xs text-white/40 font-mono">
+            <div className="w-px h-4 bg-panel-border shrink-0" />
+            <span className="text-xs text-white/40 font-mono whitespace-nowrap shrink-0">
               {events.length} events
             </span>
-            <div className="w-px h-4 bg-panel-border" />
-            <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-accent-green" : "bg-red-500"}`} />
+            <div className="w-px h-4 bg-panel-border shrink-0" />
+            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${connected ? "bg-accent-green" : "bg-red-500"}`} />
           </div>
 
           {/* Right: actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={resetAll}
               className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
@@ -212,57 +215,39 @@ export default function App() {
       <main className="flex-1 min-h-0 flex">
         {/* Left: Supply Graph */}
         <div className="flex-1 min-w-0 p-3">
-          <SupplyGraph events={events} />
+          <SupplyGraph events={events} highlightedAgentId={highlightedAgentId} selectedOrderId={selectedOrderId} />
         </div>
 
-        {/* Right: Message Flow + Execution Summary */}
-        <aside className="w-[340px] shrink-0 border-l border-panel-border flex flex-col bg-panel-card/50 overflow-hidden">
-          {/* Message Flow */}
-          <div className="flex-1 min-h-0 overflow-hidden border-b border-panel-border">
-            <MessageFlow events={events} />
-          </div>
-
-          {/* Error display */}
-          {result?.error && (
-            <div className="shrink-0 mx-3 mt-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono">
-              {String(result.error)}
-            </div>
-          )}
-
-          {/* Execution Summary */}
-          <div className="shrink-0 p-4">
-            <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.15em] font-mono mb-3">
-              Execution Summary
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <SummaryCard icon="$" label="Total Cost" value={summary.totalCost} color="text-accent-green" />
-              <SummaryCard icon="◈" label="Parts Sourced" value={summary.parts} color="text-accent-cyan" />
-              <SummaryCard icon="⟐" label="Suppliers" value={summary.suppliers} color="text-accent-gold" />
-              <SummaryCard icon="◷" label="Avg Lead Time" value={summary.leadTime} color="text-accent-orange" />
-            </div>
-          </div>
-        </aside>
+        {/* Right: Tabbed Panel (Messages / Agents / Summary) */}
+        <RightPanel
+          events={events}
+          summary={summary}
+          error={result?.error ? String(result.error) : null}
+          highlightedAgentId={highlightedAgentId}
+          onAgentClick={setHighlightedAgentId}
+          selectedOrderId={selectedOrderId}
+          onOrderSelect={setSelectedOrderId}
+        />
       </main>
 
       {/* ── Coordination Timeline (bottom bar) ─────────────────── */}
-      <footer className="shrink-0 border-t border-panel-border bg-panel-card px-5 py-2.5">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] text-white/30 font-mono uppercase tracking-wider mr-3">
+      <footer className="shrink-0 border-t border-panel-border bg-panel-card px-5 py-2.5 overflow-x-auto hide-scrollbar">
+        <div className="flex items-center gap-1 min-w-max">
+          <span className="text-[10px] text-white/30 font-mono uppercase tracking-wider mr-3 shrink-0">
             Coordination Timeline
           </span>
           {PHASES.map((step, i) => {
             const isActive = i === phase.index;
             const isDone = phase.index > i;
-            const isFuture = phase.index < i;
 
             return (
-              <div key={step} className="flex items-center">
+              <div key={step} className="flex items-center shrink-0">
                 {i > 0 && (
-                  <div className={`w-4 h-px mx-0.5 ${isDone ? "bg-accent-green/40" : "bg-panel-border"}`} />
+                  <div className={`w-3 h-px mx-0.5 ${isDone ? "bg-accent-green/40" : "bg-panel-border"}`} />
                 )}
                 <div
                   className={`
-                    px-2.5 py-1 rounded text-[10px] font-mono whitespace-nowrap transition-all
+                    px-2 py-1 rounded text-[9px] font-mono whitespace-nowrap transition-all
                     ${isActive
                       ? "bg-accent-green/15 text-accent-green border border-accent-green/30 step-active"
                       : isDone
@@ -278,19 +263,6 @@ export default function App() {
           })}
         </div>
       </footer>
-    </div>
-  );
-}
-
-// ── Summary Card ────────────────────────────────────────────────────────
-function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
-  return (
-    <div className="bg-panel-dark/60 border border-panel-border rounded-lg p-3 text-center">
-      <div className={`text-lg mb-0.5 ${color}`}>{icon}</div>
-      <div className={`text-base font-semibold font-mono ${value === "--" ? "text-white/20" : "text-white"}`}>
-        {value}
-      </div>
-      <div className="text-[9px] text-white/30 font-mono uppercase tracking-wider mt-0.5">{label}</div>
     </div>
   );
 }
