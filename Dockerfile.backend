@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY shared/ shared/
+COPY registry/ registry/
+COPY coordinator/ coordinator/
+COPY agents/ agents/
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Default CMD is overridden per service in docker-compose
+CMD ["uvicorn", "registry.main:app", "--host", "0.0.0.0", "--port", "8000"]

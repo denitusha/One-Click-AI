@@ -1,0 +1,134 @@
+version: "3.9"
+
+x-backend: &backend-base
+  build:
+    context: .
+    dockerfile: Dockerfile.backend
+  env_file: .env
+  environment:
+    SERVICE_HOST: "0.0.0.0"
+    REGISTRY_URL: "http://registry:8000"
+    COORDINATOR_URL: "http://coordinator:8001"
+    PROCUREMENT_URL: "http://procurement:8010"
+    SUPPLIER1_URL: "http://supplier1:8011"
+    SUPPLIER2_URL: "http://supplier2:8012"
+    MANUFACTURER_URL: "http://manufacturer:8013"
+    LOGISTICS_URL: "http://logistics:8014"
+    COMPLIANCE_URL: "http://compliance:8015"
+    COORDINATOR_WS_URL: "ws://coordinator:8001/ws"
+    RESOLVER_URL: "http://resolver:8016"
+  restart: unless-stopped
+
+services:
+  # ── Infrastructure ────────────────────────────────────────────
+  registry:
+    <<: *backend-base
+    container_name: registry
+    command: ["uvicorn", "registry.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+
+  coordinator:
+    <<: *backend-base
+    container_name: coordinator
+    command: ["uvicorn", "coordinator.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "8001:8001"
+    depends_on:
+      - registry
+
+  resolver:
+    <<: *backend-base
+    container_name: resolver
+    command: ["uvicorn", "resolver.main:app", "--host", "0.0.0.0", "--port", "8016"]
+    ports:
+      - "8016:8016"
+    depends_on:
+      - registry
+
+  # ── Agents ────────────────────────────────────────────────────
+  procurement:
+    <<: *backend-base
+    container_name: procurement
+    command: ["uvicorn", "agents.procurement.main:app", "--host", "0.0.0.0", "--port", "8010"]
+    ports:
+      - "8010:8010"
+    depends_on:
+      - registry
+      - coordinator
+      - resolver
+
+  supplier1:
+    <<: *backend-base
+    container_name: supplier1
+    command: ["uvicorn", "agents.supplier.main:app", "--host", "0.0.0.0", "--port", "8011"]
+    environment:
+      SUPPLIER_INSTANCE: "1"
+      SERVICE_HOST: "0.0.0.0"
+      REGISTRY_URL: "http://registry:8000"
+      COORDINATOR_URL: "http://coordinator:8001"
+      SUPPLIER1_URL: "http://supplier1:8011"
+    ports:
+      - "8011:8011"
+    depends_on:
+      - registry
+      - coordinator
+
+  supplier2:
+    <<: *backend-base
+    container_name: supplier2
+    command: ["uvicorn", "agents.supplier.main:app", "--host", "0.0.0.0", "--port", "8012"]
+    environment:
+      SUPPLIER_INSTANCE: "2"
+      SERVICE_HOST: "0.0.0.0"
+      REGISTRY_URL: "http://registry:8000"
+      COORDINATOR_URL: "http://coordinator:8001"
+      SUPPLIER2_URL: "http://supplier2:8012"
+    ports:
+      - "8012:8012"
+    depends_on:
+      - registry
+      - coordinator
+
+  manufacturer:
+    <<: *backend-base
+    container_name: manufacturer
+    command: ["uvicorn", "agents.manufacturer.main:app", "--host", "0.0.0.0", "--port", "8013"]
+    ports:
+      - "8013:8013"
+    depends_on:
+      - registry
+      - coordinator
+
+  logistics:
+    <<: *backend-base
+    container_name: logistics
+    command: ["uvicorn", "agents.logistics.main:app", "--host", "0.0.0.0", "--port", "8014"]
+    ports:
+      - "8014:8014"
+    depends_on:
+      - registry
+      - coordinator
+
+  compliance:
+    <<: *backend-base
+    container_name: compliance
+    command: ["uvicorn", "agents.compliance.main:app", "--host", "0.0.0.0", "--port", "8015"]
+    ports:
+      - "8015:8015"
+    depends_on:
+      - registry
+      - coordinator
+
+  # ── Frontend ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - registry
+      - coordinator
+      - procurement
