@@ -166,6 +166,16 @@ export interface NegotiationRound {
   rejectionReason?: string;
 }
 
+export interface MissingPart {
+  partId: string;
+  partName: string;
+  skillQuery: string;
+  quantity: number;
+  system: string;
+  reason: string;
+  timestamp: string;
+}
+
 export interface ExecutionPlan {
   totalCost: number;
   currency: string;
@@ -177,6 +187,7 @@ export interface ExecutionPlan {
   orders: OrderDetail[];
   shipPlans: ShipPlanDetail[];
   negotiations: NegotiationRound[];
+  missingParts: MissingPart[];
   report?: Record<string, unknown>;
 }
 
