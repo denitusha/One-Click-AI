@@ -1,0 +1,190 @@
+services:
+  # ── Infrastructure ─────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: nanda-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── NANDA Lean Index ───────────────────────────────────────
+  nanda-index:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: nanda-index
+    command: python3 registry.py
+    working_dir: /app/nanda-index
+    ports:
+      - "6900:6900"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - PORT=6900
+      - PYTHONPATH=/app
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6900/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Event Bus ──────────────────────────────────────────────
+  event-bus:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: event-bus
+    command: python3 server.py
+    working_dir: /app/event-bus
+    ports:
+      - "6020:6020"
+    environment:
+      - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6020/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Supplier A (CrewAI) ────────────────────────────────────
+  supplier-a:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: supplier-a
+    command: python3 supplier_crewai.py
+    working_dir: /app/agents/supplier
+    ports:
+      - "6001:6001"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - PORT=6001
+      - PYTHONPATH=/app
+    depends_on:
+      nanda-index:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Supplier B (Custom Python) ─────────────────────────────
+  supplier-b:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: supplier-b
+    command: python3 supplier_custom.py
+    working_dir: /app/agents/supplier
+    ports:
+      - "6002:6002"
+    environment:
+      - PORT=6002
+      - PYTHONPATH=/app
+    depends_on:
+      nanda-index:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Supplier C (LangChain) ─────────────────────────────────
+  supplier-c:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: supplier-c
+    command: python3 supplier_langchain.py
+    working_dir: /app/agents/supplier
+    ports:
+      - "6003:6003"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - PORT=6003
+      - PYTHONPATH=/app
+    depends_on:
+      nanda-index:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Logistics Agent (AutoGen) ──────────────────────────────
+  logistics:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: logistics-agent
+    command: python3 agent.py
+    working_dir: /app/agents/logistics
+    ports:
+      - "6004:6004"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - PORT=6004
+      - PYTHONPATH=/app
+    depends_on:
+      nanda-index:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Procurement Agent (LangGraph) ──────────────────────────
+  procurement:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: procurement-agent
+    command: python3 server.py
+    working_dir: /app/agents/procurement
+    ports:
+      - "6010:6010"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - PORT=6010
+      - PYTHONPATH=/app
+    depends_on:
+      nanda-index:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+      supplier-a:
+        condition: service_healthy
+      supplier-b:
+        condition: service_healthy
+      supplier-c:
+        condition: service_healthy
+      logistics:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6010/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo-data:
