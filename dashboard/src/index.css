@@ -2,8 +2,8 @@
 
 /* ── Custom variables ──────────────────────────────────────── */
 :root {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
+  --color-bg: #111111;
+  --color-surface: #1a1a1a;
   --color-surface-hover: #334155;
   --color-border: #334155;
   --color-text: #f1f5f9;

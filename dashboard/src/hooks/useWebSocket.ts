@@ -20,6 +20,8 @@ interface UseWebSocketReturn {
   disconnect: () => void;
   /** Fetch event history via HTTP GET (fallback when WS is down). */
   fetchHistory: () => Promise<void>;
+  /** Clear all events and re-fetch from server, resetting to initial state. */
+  reset: () => Promise<void>;
 }
 
 /**
@@ -202,6 +204,24 @@ export function useWebSocket(): UseWebSocketReturn {
     }
   }, []);
 
+  // ── Reset: clear all state and re-fetch fresh from server ──
+  const reset = useCallback(async () => {
+    // Clear all accumulated events
+    setEvents([]);
+
+    // Try to fetch fresh history from server
+    try {
+      const res = await fetch(EVENTS_HTTP_URL);
+      if (!res.ok) return;
+      const history: AgentEvent[] = await res.json();
+      if (Array.isArray(history) && history.length > 0) {
+        setEvents(history);
+      }
+    } catch {
+      // Server may be down — dashboard starts empty, which is fine
+    }
+  }, []);
+
   // ── Single effect with empty deps — Strict Mode safe ──
   useEffect(() => {
     mountedRef.current = true;
@@ -215,5 +235,5 @@ export function useWebSocket(): UseWebSocketReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { events, connected, stopped, reconnect, disconnect, fetchHistory };
+  return { events, connected, stopped, reconnect, disconnect, fetchHistory, reset };
 }
