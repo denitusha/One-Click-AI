@@ -16,7 +16,11 @@ type SidebarTab = "navigator" | "messages" | "risks" | "report";
 const PROCUREMENT_URL = "http://localhost:6010";
 
 export default function App() {
-  const { events, connected, stopped, reconnect, disconnect, fetchHistory, reset } = useWebSocket();
+  const { events, connected, stopped, reconnect, disconnect, fetchHistory } = useWebSocket();
+  const [submitting, setSubmitting] = useState(false);
+  const [runId, setRunId] = useState<string | null>(
+    () => sessionStorage.getItem("runId")  // restore on refresh
+  );
   const {
     nodes,
     edges,
@@ -28,9 +32,7 @@ export default function App() {
     orders,
     shipPlans,
     negotiations,
-  } = useDashboardState(events);
-
-  const [submitting, setSubmitting] = useState(false);
+  } = useDashboardState(events, runId);
   const [graphSelection, setGraphSelection] = useState<GraphSelection>({ mode: "overview" });
   const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>("none");
   const [activeTab, setActiveTab] = useState<SidebarTab>("messages");
@@ -84,28 +86,27 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Reset everything to initial state ──
-  const handleReset = useCallback(async () => {
-    setGraphSelection({ mode: "overview" });
-    setAnalyticsMode("none");
-    setActiveTab("messages");
-    didDisconnect.current = false;
-    await reset();
-  }, [reset]);
-
   const handleIntent = useCallback(async (intent: string) => {
     setSubmitting(true);
+    const newRunId = crypto.randomUUID();
+    setRunId(newRunId);
+    sessionStorage.setItem("runId", newRunId);
     try {
       await fetch(`${PROCUREMENT_URL}/intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent }),
+        body: JSON.stringify({ intent, run_id: newRunId }),
       });
     } catch (err) {
       console.error("Failed to submit intent:", err);
     } finally {
       setSubmitting(false);
     }
+  }, []);
+
+  const handleReset = useCallback(() => {
+    sessionStorage.removeItem("runId");
+    setRunId(null);
   }, []);
 
   // ── Graph drill-down callbacks ──
@@ -172,47 +173,40 @@ export default function App() {
         </div>
         <StatusBar
           connected={connected}
-          eventCount={events.length}
+          eventCount={messages.length}
           nodeCount={nodes.length}
           edgeCount={edges.length}
           onReconnect={reconnect}
         />
-        {/* Data status indicator */}
         {stopped && (
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[0.65rem] font-medium text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Data frozen ({events.length} events)
-            </span>
-            <button
-              onClick={handleReset}
-              className="rounded-md bg-slate-700/50 px-2 py-1 text-[0.6rem] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-slate-200"
-              title="Reset dashboard to initial state"
-            >
-              Reload
-            </button>
-          </div>
+          <button
+            onClick={handleReset}
+            className="rounded-md bg-neutral-700/50 px-2 py-1 text-[0.6rem] text-slate-400 transition-colors hover:bg-neutral-600/50 hover:text-slate-200"
+            title="Reset to start a new run"
+          >
+            Reset
+          </button>
         )}
         {!connected && !stopped && events.length === 0 && (
           <button
-            onClick={fetchHistory}
+            onClick={handleReset}
             className="flex items-center gap-1.5 rounded-md bg-sky-600/20 px-2.5 py-1 text-[0.65rem] font-medium text-sky-400 transition-colors hover:bg-sky-600/30"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Load from server
+            Reset
           </button>
         )}
       </header>
 
       {/* ── Intent input bar ───────────────────────────────── */}
-      <div className="shrink-0 border-b border-slate-700/40 bg-slate-900/40 px-5 py-3">
+      <div className="shrink-0 border-b border-neutral-700/40 bg-neutral-900/40 px-5 py-3">
         <IntentInput onSubmit={handleIntent} disabled={submitting} />
       </div>
 
       {/* ── Timeline bar ───────────────────────────────────── */}
-      <div className="shrink-0 border-b border-slate-700/40 bg-slate-900/30">
+      <div className="shrink-0 border-b border-neutral-700/40 bg-neutral-900/30">
         <Timeline phases={timeline} cascadeComplete={cascadeComplete} />
       </div>
 
@@ -220,7 +214,7 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         {/* Left: Supply graph (main area) */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b border-slate-700/30 px-4 py-2">
+          <div className="flex items-center gap-2 border-b border-neutral-700/30 px-4 py-2">
             <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
@@ -230,7 +224,7 @@ export default function App() {
             {graphSelection.mode !== "overview" && (
               <button
                 onClick={handleBack}
-                className="ml-auto flex items-center gap-1 rounded-md bg-slate-700/50 px-2 py-0.5 text-[0.6rem] font-medium text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-slate-200"
+                className="ml-auto flex items-center gap-1 rounded-md bg-neutral-700/50 px-2 py-0.5 text-[0.6rem] font-medium text-slate-400 transition-colors hover:bg-neutral-600/50 hover:text-slate-200"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -258,19 +252,19 @@ export default function App() {
         {/* ── Horizontal drag divider ── */}
         <div
           onMouseDown={handleSidebarDrag}
-          className="w-1.5 shrink-0 cursor-col-resize bg-slate-700/40 transition-colors hover:bg-indigo-500/40"
+          className="w-1.5 shrink-0 cursor-col-resize bg-neutral-700/40 transition-colors hover:bg-indigo-500/40"
         />
 
         {/* Right sidebar: Tabbed panels */}
         <div className="flex shrink-0 flex-col" style={{ width: sidebarWidth }}>
           {/* ── Tab bar ── */}
-          <div className="flex shrink-0 border-b border-slate-700/50 bg-slate-900/60">
+          <div className="flex shrink-0 border-b border-neutral-700/50 bg-neutral-900/60">
             <button
               onClick={() => setActiveTab("navigator")}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wider transition-all ${
                 activeTab === "navigator"
                   ? "border-b-2 border-purple-400 text-purple-300 bg-purple-500/10"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-neutral-800/40"
               }`}
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -283,7 +277,7 @@ export default function App() {
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wider transition-all ${
                 activeTab === "messages"
                   ? "border-b-2 border-sky-400 text-sky-300 bg-sky-500/10"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-neutral-800/40"
               }`}
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -301,7 +295,7 @@ export default function App() {
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wider transition-all ${
                 activeTab === "risks"
                   ? "border-b-2 border-amber-400 text-amber-300 bg-amber-500/10"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-neutral-800/40"
               }`}
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -314,7 +308,7 @@ export default function App() {
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wider transition-all ${
                 activeTab === "report"
                   ? "border-b-2 border-emerald-400 text-emerald-300 bg-emerald-500/10"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-neutral-800/40"
               }`}
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -340,14 +334,14 @@ export default function App() {
             )}
             {activeTab === "messages" && (
               <div className="flex h-full flex-col overflow-hidden">
-                <div className="flex shrink-0 items-center gap-2 border-b border-slate-700/30 px-4 py-2">
+                <div className="flex shrink-0 items-center gap-2 border-b border-neutral-700/30 px-4 py-2">
                   <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Message Flow
                   </h2>
-                  <span className="ml-auto rounded-full bg-slate-700/60 px-2 py-0.5 text-[0.6rem] font-mono text-slate-400">
+                  <span className="ml-auto rounded-full bg-neutral-700/60 px-2 py-0.5 text-[0.6rem] font-mono text-slate-400">
                     {messages.length}
                   </span>
                 </div>
@@ -358,7 +352,7 @@ export default function App() {
             )}
             {activeTab === "risks" && (
               <div className="flex h-full flex-col overflow-hidden">
-                <div className="flex shrink-0 items-center gap-2 border-b border-slate-700/30 px-4 py-2">
+                <div className="flex shrink-0 items-center gap-2 border-b border-neutral-700/30 px-4 py-2">
                   <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
@@ -378,7 +372,7 @@ export default function App() {
             )}
             {activeTab === "report" && (
               <div className="flex h-full flex-col overflow-hidden">
-                <div className="flex shrink-0 items-center gap-2 border-b border-slate-700/30 px-4 py-2">
+                <div className="flex shrink-0 items-center gap-2 border-b border-neutral-700/30 px-4 py-2">
                   <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
