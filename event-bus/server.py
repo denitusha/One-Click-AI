@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 import time
 from collections import deque
@@ -25,10 +26,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
+
+# MongoDB (async) — graceful degradation if unavailable
+try:
+    import motor.motor_asyncio as motor_asyncio
+except ImportError:
+    motor_asyncio = None  # type: ignore[assignment]
 
 # ---------------------------------------------------------------------------
 # Ensure the shared package is importable
@@ -75,6 +82,10 @@ class Event(BaseModel):
     data: dict[str, Any] = Field(
         default_factory=dict,
         description="Arbitrary event-specific payload",
+    )
+    run_id: str = Field(
+        default="",
+        description="Dashboard-generated run UUID (also extracted from data.run_id)",
     )
 
 
@@ -156,6 +167,37 @@ class ConnectionManager:
 
 
 # ---------------------------------------------------------------------------
+# MongoDB persistence (optional — graceful degradation)
+# ---------------------------------------------------------------------------
+MONGODB_URI = os.environ.get("MONGODB_URI", "")
+_mongo_collection: Any = None  # motor collection or None
+
+
+async def _init_mongo() -> None:
+    """Connect to MongoDB if configured and motor is available."""
+    global _mongo_collection
+    if not MONGODB_URI or motor_asyncio is None:
+        if not MONGODB_URI:
+            logger.info("MONGODB_URI not set — running in-memory only.")
+        else:
+            logger.warning("motor not installed — running in-memory only.")
+        return
+    try:
+        client = motor_asyncio.AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=3000)
+        # Verify connectivity
+        await client.admin.command("ping")
+        db = client["event_bus"]
+        _mongo_collection = db["events"]
+        # Create indexes for fast queries
+        await _mongo_collection.create_index("run_id")
+        await _mongo_collection.create_index("timestamp")
+        logger.info("Connected to MongoDB at %s", MONGODB_URI)
+    except Exception as exc:
+        logger.warning("MongoDB unavailable (%s) — falling back to in-memory.", exc)
+        _mongo_collection = None
+
+
+# ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
 
@@ -173,6 +215,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         EVENT_BUS_PORT,
         EVENT_BUS_PORT,
     )
+    await _init_mongo()
     yield
     logger.info(
         "Event Bus shutting down. Served %d events to %d clients.",
@@ -213,6 +256,10 @@ async def receive_event(event: Event) -> dict[str, str]:
     if not event.timestamp:
         event.timestamp = datetime.now(timezone.utc).isoformat()
 
+    # Extract run_id from data.run_id if not set at top level
+    if not event.run_id and event.data.get("run_id"):
+        event.run_id = str(event.data["run_id"])
+
     event_dict = event.model_dump()
     logger.info(
         "EVENT  %-25s  from=%-20s  keys=%s",
@@ -221,18 +268,92 @@ async def receive_event(event: Event) -> dict[str, str]:
         list(event.data.keys()),
     )
     await manager.broadcast(event_dict)
+
+    # Persist to MongoDB (best-effort, non-blocking)
+    if _mongo_collection is not None:
+        try:
+            await _mongo_collection.insert_one(event_dict.copy())
+        except Exception as exc:
+            logger.warning("MongoDB insert failed: %s", exc)
+
     return {"status": "accepted"}
 
 
 @app.get("/events")
-async def get_events(limit: int = 100) -> list[dict[str, Any]]:
+async def get_events(
+    limit: int = 100,
+    run_id: str = Query(default="", description="Filter events by run_id"),
+) -> list[dict[str, Any]]:
     """Return recent event history (most recent last).
 
     Useful for the dashboard to catch up on page refresh without needing
-    a full WebSocket reconnection dance.
+    a full WebSocket reconnection dance.  Supports ``?run_id=...`` filtering.
     """
+    # If MongoDB is available and a run_id filter is requested, query the DB
+    if run_id and _mongo_collection is not None:
+        try:
+            cursor = _mongo_collection.find(
+                {"run_id": run_id},
+                {"_id": 0},
+            ).sort("timestamp", 1).limit(limit)
+            return await cursor.to_list(length=limit)
+        except Exception as exc:
+            logger.warning("MongoDB query failed, falling back to in-memory: %s", exc)
+
+    # Fallback: in-memory history with optional client-side-style filter
     history = manager.history
+    if run_id:
+        history = [
+            e for e in history
+            if e.get("run_id") == run_id or e.get("data", {}).get("run_id") == run_id
+        ]
     return history[-limit:]
+
+
+@app.get("/runs")
+async def get_runs() -> list[dict[str, Any]]:
+    """Return a list of distinct run_id values with timestamps.
+
+    Useful for a future 'run history' feature.  Falls back to in-memory
+    deduplication when MongoDB is unavailable.
+    """
+    if _mongo_collection is not None:
+        try:
+            pipeline = [
+                {"$match": {"run_id": {"$ne": ""}}},
+                {"$group": {
+                    "_id": "$run_id",
+                    "first_seen": {"$min": "$timestamp"},
+                    "last_seen": {"$max": "$timestamp"},
+                    "event_count": {"$sum": 1},
+                }},
+                {"$sort": {"first_seen": -1}},
+                {"$limit": 50},
+            ]
+            cursor = _mongo_collection.aggregate(pipeline)
+            runs = []
+            async for doc in cursor:
+                runs.append({
+                    "run_id": doc["_id"],
+                    "first_seen": doc["first_seen"],
+                    "last_seen": doc["last_seen"],
+                    "event_count": doc["event_count"],
+                })
+            return runs
+        except Exception as exc:
+            logger.warning("MongoDB aggregation failed: %s", exc)
+
+    # Fallback: derive from in-memory history
+    run_map: dict[str, dict[str, Any]] = {}
+    for e in manager.history:
+        rid = e.get("run_id") or e.get("data", {}).get("run_id", "")
+        if not rid:
+            continue
+        if rid not in run_map:
+            run_map[rid] = {"run_id": rid, "first_seen": e.get("timestamp", ""), "last_seen": e.get("timestamp", ""), "event_count": 0}
+        run_map[rid]["last_seen"] = e.get("timestamp", "")
+        run_map[rid]["event_count"] += 1
+    return sorted(run_map.values(), key=lambda r: r["first_seen"], reverse=True)
 
 
 @app.get("/health")

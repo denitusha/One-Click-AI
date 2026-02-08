@@ -48,6 +48,10 @@ services:
       - "6020:6020"
     environment:
       - PYTHONPATH=/app
+      - MONGODB_URI=mongodb://mongo:27017
+    depends_on:
+      mongo:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:6020/health"]
       interval: 10s
