@@ -139,23 +139,33 @@ AUTOMOTIVE_TEMPLATE: list[dict[str, Any]] = [
 # ---------------------------------------------------------------------------
 
 BOM_SYSTEM_PROMPT = """\
-You are an automotive procurement specialist. Given a user's vehicle intent,
-decompose it into a Bill of Materials (BOM) with 6-10 parts across 4-6 vehicle systems.
+You are a procurement specialist. Given a user's intent (e.g., "build a Ferrari", 
+"supply Red Bull", "create a smartphone"), decompose it into a Bill of Materials (BOM) 
+with 6-10 parts appropriate for that specific product or project.
+
+IMPORTANT: Be context-aware! Understand what the user is asking for:
+- If they say "Ferrari" or "high-performance vehicle" → generate automotive parts
+- If they say "Red Bull" or "energy drink" → generate beverage supply chain parts
+- If they say "smartphone" → generate electronics parts
+- Adapt your categories to match the actual product type, NOT always to automotive
 
 Return ONLY a valid JSON array of parts. Each part must have:
-- part_id: short snake_case identifier
+- part_id: short snake_case identifier (e.g., 'aluminum_cans', 'carbon_fiber_panels')
 - part_name: human-readable name
-- system: vehicle system (Chassis, Powertrain, Braking, Suspension, Interior, Electronics)
+- system: logical category/system for this product (e.g., 'Packaging', 'Ingredients', 
+  'Manufacturing', 'Assembly', 'Electronics', 'Powertrain', 'Distribution', etc.)
 - quantity: integer > 0
-- skill_query: NANDA skill keyword in format "supply:<part_id>"
-- compliance_requirements: list of required certifications
-- specs: dict of technical specifications
+- skill_query: NANDA skill keyword in format "supply:<part_id>" 
+  (e.g., "supply:aluminum_cans", "supply:carbon_fiber_panels")
+- compliance_requirements: list of required certifications (e.g., ['ISO 9001', 'FDA'])
+- specs: dict of technical specifications relevant to the part
 
-Focus on parts that match these available supplier skills:
-- supply:carbon_fiber_panels, supply:carbon_fiber_raw
-- supply:titanium_alloy, supply:titanium_fasteners
-- supply:aluminum_engine_block, supply:turbocharger_assembly
-- supply:ceramic_brake_calipers
+Guidelines:
+1. Generate parts contextually relevant to the actual intent, not a fixed template
+2. Create logical system/category names that match the product type
+3. Vary part types and systems across different intents
+4. For any part_id you create, generate a corresponding "supply:<part_id>" skill_query
+5. Include realistic compliance requirements for each product type
 
 Return ONLY the JSON array, no markdown fences, no explanation."""
 

@@ -13,9 +13,11 @@ INDEX_URL = f"http://{INDEX_HOST}:{INDEX_PORT}"
 PROCUREMENT_PORT = 6010
 
 SUPPLIER_PORTS: dict[str, int] = {
-    "supplier_a": 6001,  # CrewAI
-    "supplier_b": 6002,  # Custom Python
-    "supplier_c": 6003,  # LangChain
+    "supplier_a": 6001,  # CrewAI - Carbon Fiber
+    "supplier_b": 6002,  # Custom Python - Titanium & Ceramics
+    "supplier_c": 6003,  # LangChain - Powertrain
+    "supplier_d": 6005,  # CrewAI - Aluminum & Materials
+    "supplier_e": 6006,  # LangChain - Packaging & Ingredients
 }
 
 LOGISTICS_PORT = 6004

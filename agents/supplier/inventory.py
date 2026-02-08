@@ -9,6 +9,8 @@ Suppliers
 - **A** (CrewAI) — carbon fibre components
 - **B** (Custom Python) — titanium alloys, fasteners, ceramic brakes
 - **C** (LangChain) — powertrain components
+- **D** (CrewAI) — aluminum & materials (multi-industry)
+- **E** (LangChain) — packaging & ingredients (beverage supply chain)
 """
 
 from __future__ import annotations
@@ -172,6 +174,166 @@ SUPPLIER_C_CATALOG: dict[str, PartInfo] = {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Supplier D — Aluminum & Materials (CrewAI · port 6005)
+# Skills: supply:aluminum_cans, supply:aluminum_engine_block, supply:aluminum_sheet_stock
+# ═══════════════════════════════════════════════════════════════════════════
+
+SUPPLIER_D_CATALOG: dict[str, PartInfo] = {
+    "aluminum_cans": PartInfo(
+        part_id="aluminum_cans",
+        part_name="Aluminum Beverage Cans",
+        description="Food-grade aluminum beverage cans for beverages, available in 330ml and 500ml sizes",
+        base_price=0.20,
+        stock_quantity=50000,
+        lead_time_days=4,
+        shipping_origin="Amsterdam, Netherlands",
+        certifications=["FDA", "ISO 22000", "REACH"],
+        min_order_qty=1000,
+        floor_price_pct=0.85,
+        specs={
+            "material": "food-grade aluminum",
+            "sizes_ml": [330, 500],
+            "weight_g_per_can": 15.5,
+            "coating": "food-safe epoxy",
+        },
+    ),
+    "aluminum_engine_block": PartInfo(
+        part_id="aluminum_engine_block",
+        part_name="Aluminum Engine Block",
+        description="A356 aluminum alloy engine block, 6-cylinder, 3.0L displacement",
+        base_price=3200.00,
+        stock_quantity=30,
+        lead_time_days=35,
+        shipping_origin="Amsterdam, Netherlands",
+        certifications=["ISO 9001", "IATF 16949"],
+        min_order_qty=1,
+        floor_price_pct=0.85,
+        specs={"material": "A356 aluminum alloy", "cylinders": 6, "displacement_L": 3.0},
+    ),
+    "aluminum_sheet_stock": PartInfo(
+        part_id="aluminum_sheet_stock",
+        part_name="Aluminum Sheet Stock",
+        description="Raw aluminum sheets in various grades and thicknesses for manufacturing applications",
+        base_price=15.00,
+        stock_quantity=10000,
+        lead_time_days=8,
+        shipping_origin="Amsterdam, Netherlands",
+        certifications=["ISO 9001", "REACH"],
+        min_order_qty=100,
+        floor_price_pct=0.80,
+        specs={
+            "material": "aluminum alloy",
+            "grades": ["1050", "3003", "5052", "6061"],
+            "thickness_mm": [0.5, 1.0, 2.0, 3.0, 5.0],
+            "width_m": 1.2,
+            "length_m": 2.4,
+        },
+    ),
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Supplier E — Packaging & Ingredients (LangChain · port 6006)
+# Skills: supply:labels_packaging, supply:caffeine_supply, supply:taurine_supply,
+#         supply:bottling_equipment, supply:distribution_supplies
+# ═══════════════════════════════════════════════════════════════════════════
+
+SUPPLIER_E_CATALOG: dict[str, PartInfo] = {
+    "labels_packaging": PartInfo(
+        part_id="labels_packaging",
+        part_name="Product Labels and Packaging Materials",
+        description="Waterproof product labels with food-safe adhesive for beverage packaging",
+        base_price=0.08,
+        stock_quantity=100000,
+        lead_time_days=3,
+        shipping_origin="Brussels, Belgium",
+        certifications=["FDA", "ISO 22000"],
+        min_order_qty=5000,
+        floor_price_pct=0.90,
+        specs={
+            "material": "waterproof vinyl",
+            "adhesive": "food-safe acrylic",
+            "sizes_mm": ["50x30", "75x50", "100x75"],
+            "print_quality": "300 DPI",
+        },
+    ),
+    "caffeine_supply": PartInfo(
+        part_id="caffeine_supply",
+        part_name="Caffeine Powder",
+        description="Pharmaceutical grade caffeine powder, 99.9% purity, for beverage manufacturing",
+        base_price=65.00,
+        stock_quantity=1000,
+        lead_time_days=8,
+        shipping_origin="Brussels, Belgium",
+        certifications=["FDA", "USP", "ISO 22000"],
+        min_order_qty=10,
+        floor_price_pct=0.85,
+        specs={
+            "purity": "99.9%",
+            "grade": "pharmaceutical",
+            "form": "powder",
+            "packaging": "25kg bags",
+            "shelf_life_years": 3,
+        },
+    ),
+    "taurine_supply": PartInfo(
+        part_id="taurine_supply",
+        part_name="Taurine Powder",
+        description="Pharmaceutical grade taurine powder, 99.5% purity, for energy drink formulations",
+        base_price=40.00,
+        stock_quantity=500,
+        lead_time_days=8,
+        shipping_origin="Brussels, Belgium",
+        certifications=["FDA", "USP", "ISO 22000"],
+        min_order_qty=10,
+        floor_price_pct=0.85,
+        specs={
+            "purity": "99.5%",
+            "grade": "pharmaceutical",
+            "form": "powder",
+            "packaging": "20kg bags",
+            "shelf_life_years": 2,
+        },
+    ),
+    "bottling_equipment": PartInfo(
+        part_id="bottling_equipment",
+        part_name="Automated Bottling Line Equipment",
+        description="Automated bottling line equipment with capacity of 1000 bottles per hour",
+        base_price=8000.00,
+        stock_quantity=10,
+        lead_time_days=18,
+        shipping_origin="Brussels, Belgium",
+        certifications=["ISO 9001", "CE marking"],
+        min_order_qty=1,
+        floor_price_pct=0.80,
+        specs={
+            "capacity_bottles_per_hour": 1000,
+            "bottle_sizes_ml": [250, 330, 500],
+            "automation_level": "fully automated",
+            "power_consumption_kw": 15,
+            "footprint_m2": 25,
+        },
+    ),
+    "distribution_supplies": PartInfo(
+        part_id="distribution_supplies",
+        part_name="Distribution Supplies",
+        description="Corrugated cardboard shipping boxes and pallets for product distribution",
+        base_price=3.50,
+        stock_quantity=5000,
+        lead_time_days=2,
+        shipping_origin="Brussels, Belgium",
+        certifications=["ISO 9001"],
+        min_order_qty=50,
+        floor_price_pct=0.90,
+        specs={
+            "material": "corrugated cardboard",
+            "sizes_cm": ["40x30x25", "50x40x30", "60x40x40"],
+            "weight_capacity_kg": 25,
+            "stackable": True,
+        },
+    ),
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
 # All catalogues indexed by supplier key
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -179,6 +341,8 @@ ALL_CATALOGS: dict[str, dict[str, PartInfo]] = {
     "supplier_a": SUPPLIER_A_CATALOG,
     "supplier_b": SUPPLIER_B_CATALOG,
     "supplier_c": SUPPLIER_C_CATALOG,
+    "supplier_d": SUPPLIER_D_CATALOG,
+    "supplier_e": SUPPLIER_E_CATALOG,
 }
 
 

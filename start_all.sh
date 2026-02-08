@@ -11,7 +11,9 @@
 #   5. Supplier C (LangChain) (port 6003)
 #   6. Logistics Agent    (port 6004)
 #   7. Procurement Agent  (port 6010)
-#   8. Dashboard (React)  (port 5173)
+#   8. Supplier D (CrewAI - Aluminum)  (port 6005)
+#   9. Supplier E (LangChain - Packaging)  (port 6006)
+#  10. Dashboard (React)  (port 5173)
 #
 # Usage:
 #   ./start_all.sh          Start all services (background)
@@ -44,7 +46,7 @@ for arg in "$@"; do
                 rm -f "$PIDS_FILE"
             fi
             # Also kill by port as a safety net
-            for port in 6900 6020 6001 6002 6003 6004 6010; do
+            for port in 6900 6020 6001 6002 6003 6004 6005 6006 6010; do
                 lsof -ti ":$port" 2>/dev/null | xargs kill 2>/dev/null || true
             done
             echo "All services stopped."
@@ -63,7 +65,7 @@ mkdir -p "$LOG_DIR"
 rm -f "$PIDS_FILE"
 
 # ── Kill any leftover processes on our ports ─────────────────────────────
-ALL_PORTS=(6900 6020 6001 6002 6003 6004 6010)
+ALL_PORTS=(6900 6020 6001 6002 6003 6004 6005 6006 6010)
 stale_found=false
 for port in "${ALL_PORTS[@]}"; do
     pids=$(lsof -ti ":$port" 2>/dev/null || true)
@@ -204,7 +206,23 @@ start_service \
     "http://localhost:6010/health" \
     "$BLUE"
 
-# ── 8. Dashboard (React + Vite) ──────────────────────────────────────────
+# ── 8. Supplier D (Aluminum & Materials - CrewAI) ─────────────────────────
+start_service \
+    "supplier-d" \
+    "supplier_aluminum.py" \
+    "$SCRIPT_DIR/agents/supplier" \
+    "http://localhost:6005/health" \
+    "$GREEN"
+
+# ── 9. Supplier E (Packaging & Ingredients - LangChain) ──────────────────
+start_service \
+    "supplier-e" \
+    "supplier_packaging.py" \
+    "$SCRIPT_DIR/agents/supplier" \
+    "http://localhost:6006/health" \
+    "$GREEN"
+
+# ── 10. Dashboard (React + Vite) ──────────────────────────────────────────
 if [ "$NO_DASHBOARD" = false ]; then
     echo -e "${MAGENTA}▶ Starting dashboard...${NC}"
     cd "$SCRIPT_DIR/dashboard"
@@ -238,6 +256,8 @@ echo "    Supplier A (CrewAI) ..... http://localhost:6001"
 echo "    Supplier B (Custom) ..... http://localhost:6002"
 echo "    Supplier C (LangChain) .. http://localhost:6003"
 echo "    Logistics (AutoGen) ..... http://localhost:6004"
+echo "    Supplier D (CrewAI) ..... http://localhost:6005"
+echo "    Supplier E (LangChain) .. http://localhost:6006"
 echo "    Procurement (LangGraph) . http://localhost:6010"
 if [ "$NO_DASHBOARD" = false ]; then
 echo "    Dashboard ............... http://localhost:3000"
