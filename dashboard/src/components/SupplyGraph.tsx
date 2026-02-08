@@ -92,9 +92,9 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
   const isOverview = mode === "overview";
   const isLogistics = mode === "logistics-detail";
   const isOrder = mode === "order-detail";
-  const nodeSize = isOverview ? 65 : isLogistics ? 45 : 50;
-  const procSize = isOverview ? 80 : 60;
-  const fontSize = isOverview ? "13px" : "11px";
+  const nodeSize = isOverview ? 50 : isLogistics ? 45 : 50;
+  const procSize = isOverview ? 60 : 55;
+  const fontSize = isOverview ? "11px" : "10px";
 
   const styles: Array<{ selector: string; style: Record<string, any> }> = [
     {
@@ -114,12 +114,12 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         width: nodeSize,
         height: nodeSize,
         "text-wrap": "wrap",
-        "text-max-width": isOverview ? "120px" : "100px",
+        "text-max-width": isOverview ? "100px" : "90px",
         "text-background-opacity": 0.7,
         "text-background-color": "#1e293b",
         "text-background-padding": "4px",
         "text-background-shape": "roundrectangle",
-        "corner-radius": 12,
+        "corner-radius": 10,
       },
     },
     {
@@ -128,11 +128,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "background-color": "#1a2332",
         "border-color": "#6366f1",
         shape: "round-rectangle" as any,
-        width: isOverview ? 70 : 60,
-        height: isOverview ? 70 : 60,
+        width: isOverview ? 55 : 50,
+        height: isOverview ? 55 : 50,
         "background-image": NODE_ICONS.procurement,
-        "background-width": "65%",
-        "background-height": "65%",
+        "background-width": "75%",
+        "background-height": "75%",
       },
     },
     {
@@ -141,11 +141,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "background-color": "#1a2332",
         "border-color": "#10b981",
         shape: "round-rectangle" as any,
-        width: isOverview ? 65 : 55,
-        height: isOverview ? 65 : 55,
+        width: isOverview ? 50 : 45,
+        height: isOverview ? 50 : 45,
         "background-image": NODE_ICONS.supplier,
-        "background-width": "65%",
-        "background-height": "65%",
+        "background-width": "75%",
+        "background-height": "75%",
       },
     },
     {
@@ -154,11 +154,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "background-color": "#1a2332",
         "border-color": "#ea580c",
         shape: "round-rectangle" as any,
-        width: isOverview ? 65 : 55,
-        height: isOverview ? 65 : 55,
+        width: isOverview ? 50 : 45,
+        height: isOverview ? 50 : 45,
         "background-image": NODE_ICONS.logistics,
-        "background-width": "65%",
-        "background-height": "65%",
+        "background-width": "75%",
+        "background-height": "75%",
       },
     },
     {
@@ -167,11 +167,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "background-color": "#1a2332",
         "border-color": "#ec4899",
         shape: "round-rectangle" as any,
-        width: isOverview ? 65 : 55,
-        height: isOverview ? 65 : 55,
+        width: isOverview ? 50 : 45,
+        height: isOverview ? 50 : 45,
         "background-image": NODE_ICONS.index,
-        "background-width": "65%",
-        "background-height": "65%",
+        "background-width": "75%",
+        "background-height": "75%",
       },
     },
     // Hub nodes (logistics routing cities)
