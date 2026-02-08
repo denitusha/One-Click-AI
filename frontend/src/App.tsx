@@ -105,6 +105,7 @@ export default function App() {
   const [intentInput, setIntentInput] = useState("Buy all the parts required to assemble a Ferrari");
   const [highlightedAgentId, setHighlightedAgentId] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedGraphNode, setSelectedGraphNode] = useState<string | null>(null);
 
   const { events, connected, clearEvents } = useWebSocket("ws://localhost:8001/ws");
   const phase = useMemo(
@@ -141,6 +142,7 @@ export default function App() {
     setResult(null);
     clearEvents();
     setSelectedOrderId(null);
+    setSelectedGraphNode(null);
   }, [clearEvents]);
 
   return (
@@ -212,22 +214,31 @@ export default function App() {
       </header>
 
       {/* ── Main content: Graph left, Sidebar right ─────────────── */}
-      <main className="flex-1 min-h-0 flex">
+      <main className="flex-1 min-h-0 flex gap-0">
         {/* Left: Supply Graph */}
-        <div className="flex-1 min-w-0 p-3">
-          <SupplyGraph events={events} highlightedAgentId={highlightedAgentId} selectedOrderId={selectedOrderId} />
+        <div className="flex-[0.7] min-w-0 p-3">
+          <SupplyGraph 
+            events={events} 
+            highlightedAgentId={highlightedAgentId} 
+            selectedOrderId={selectedOrderId}
+            selectedGraphNode={selectedGraphNode}
+          />
         </div>
 
         {/* Right: Tabbed Panel (Messages / Agents / Summary) */}
-        <RightPanel
-          events={events}
-          summary={summary}
-          error={result?.error ? String(result.error) : null}
-          highlightedAgentId={highlightedAgentId}
-          onAgentClick={setHighlightedAgentId}
-          selectedOrderId={selectedOrderId}
-          onOrderSelect={setSelectedOrderId}
-        />
+        <div className="flex-[0.3] min-w-0">
+          <RightPanel
+            events={events}
+            summary={summary}
+            error={result?.error ? String(result.error) : null}
+            highlightedAgentId={highlightedAgentId}
+            onAgentClick={setHighlightedAgentId}
+            selectedOrderId={selectedOrderId}
+            onOrderSelect={setSelectedOrderId}
+            selectedGraphNode={selectedGraphNode}
+            onGraphNodeSelect={setSelectedGraphNode}
+          />
+        </div>
       </main>
 
       {/* ── Coordination Timeline (bottom bar) ─────────────────── */}

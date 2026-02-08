@@ -5,6 +5,7 @@ import {
   Controls,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type Edge,
   MarkerType,
@@ -353,11 +354,18 @@ interface Props {
   events: WsEvent[];
   highlightedAgentId?: string | null;
   selectedOrderId?: string | null;
+  selectedGraphNode?: string | null;
 }
 
-export default function SupplyGraph({ events, highlightedAgentId, selectedOrderId }: Props) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(DEFAULT_NODES);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(DEFAULT_EDGES);
+// Inner component that uses React Flow hooks (must be inside ReactFlow provider)
+function GraphContent({
+  events,
+  highlightedAgentId,
+  selectedOrderId,
+  selectedGraphNode,
+  setNodes,
+  setEdges,
+}: Props & { setNodes: (nodes: Node[] | ((nds: Node[]) => Node[])) => void; setEdges: (edges: Edge[] | ((eds: Edge[]) => Edge[])) => void }) {
   const [showLegend, setShowLegend] = useState(true);
 
   useEffect(() => {
@@ -565,22 +573,11 @@ export default function SupplyGraph({ events, highlightedAgentId, selectedOrderI
   }, [events, highlightedAgentId, selectedOrderId, setNodes, setEdges]);
 
   return (
-    <div className="h-full w-full rounded-lg overflow-hidden border border-panel-border bg-panel-dark relative">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        fitView
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background color="#ffffff08" gap={24} />
-        <Controls
-          className="!bg-panel-card !border-panel-border !text-white/50 [&>button]:!bg-panel-card [&>button]:!border-panel-border [&>button]:!text-white/50 [&>button:hover]:!bg-panel-hover"
-        />
-      </ReactFlow>
+    <>
+      <Background color="#ffffff08" gap={24} />
+      <Controls
+        className="!bg-panel-card !border-panel-border !text-white/50 [&>button]:!bg-panel-card [&>button]:!border-panel-border [&>button]:!text-white/50 [&>button:hover]:!bg-panel-hover"
+      />
 
       {/* ── Edge Legend ──────────────────────────────────────────── */}
       <div className="absolute bottom-3 right-3 z-10">
@@ -618,6 +615,91 @@ export default function SupplyGraph({ events, highlightedAgentId, selectedOrderI
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+// Wrapper component to handle zoom effects
+function GraphWithZoom({
+  events,
+  highlightedAgentId,
+  selectedOrderId,
+  selectedGraphNode,
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  setNodes,
+  setEdges,
+}: Props & {
+  nodes: any[];
+  edges: any[];
+  onNodesChange: any;
+  onEdgesChange: any;
+  setNodes: any;
+  setEdges: any;
+}) {
+  const { fitView, setCenter } = useReactFlow();
+
+  // Handle graph node selection - zoom to selected node
+  useEffect(() => {
+    if (selectedGraphNode && nodes.length > 0) {
+      const selectedNode = nodes.find((n) => n.id === selectedGraphNode || n.id === selectedGraphNode.replace("order-", ""));
+      if (selectedNode) {
+        setCenter(selectedNode.position.x, selectedNode.position.y, { zoom: 2, duration: 800 });
+      }
+    } else {
+      // Fit all nodes when no selection
+      setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 0);
+    }
+  }, [selectedGraphNode, nodes, setCenter, fitView]);
+
+  return (
+    <GraphContent
+      events={events}
+      highlightedAgentId={highlightedAgentId}
+      selectedOrderId={selectedOrderId}
+      selectedGraphNode={selectedGraphNode}
+      setNodes={setNodes}
+      setEdges={setEdges}
+    />
+  );
+}
+
+// Outer wrapper component that provides the ReactFlow context and manages state
+export default function SupplyGraph({ events, highlightedAgentId, selectedOrderId, selectedGraphNode }: Props) {
+  const [nodes, setNodes, onNodesChange] = useNodesState(DEFAULT_NODES);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(DEFAULT_EDGES);
+
+  return (
+    <div className="h-full w-full rounded-lg overflow-hidden border border-panel-border bg-panel-dark relative">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        proOptions={{ hideAttribution: true }}
+      >
+        <GraphWithZoom
+          events={events}
+          highlightedAgentId={highlightedAgentId}
+          selectedOrderId={selectedOrderId}
+          selectedGraphNode={selectedGraphNode}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          setNodes={setNodes}
+          setEdges={setEdges}
+        />
+        <Background color="#ffffff08" gap={24} />
+        <Controls
+          className="!bg-panel-card !border-panel-border !text-white/50 [&>button]:!bg-panel-card [&>button]:!border-panel-border [&>button]:!text-white/50 [&>button:hover]:!bg-panel-hover"
+        />
+      </ReactFlow>
     </div>
   );
 }
