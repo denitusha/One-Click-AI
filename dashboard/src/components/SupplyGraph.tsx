@@ -466,6 +466,29 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
     );
   }
 
+  /* ── Failed supplier styling (disruption simulation) ── */
+  styles.push({
+    selector: "node.failed",
+    style: {
+      "border-color": "#ef4444",
+      "border-width": 5,
+      "border-style": "double" as any,
+      "background-color": "#450a0a",
+      opacity: 0.7,
+    },
+  });
+
+  /* ── Disrupted order edge styling ── */
+  styles.push({
+    selector: "edge.disrupted",
+    style: {
+      "line-color": "#dc2626",
+      "target-arrow-color": "#dc2626",
+      "line-style": "dashed" as any,
+      opacity: 0.5,
+    },
+  });
+
   return styles;
 }
 
@@ -648,8 +671,10 @@ interface SupplyGraphProps {
   shipPlans: ShipPlanDetail[];
   negotiations: NegotiationRound[];
   analyticsMode: AnalyticsMode;
+  simulationMode: boolean;
   onSelectAgent: (agentId: string) => void;
   onBack: () => void;
+  onDisrupt: (supplierId: string) => void;
 }
 
 /* ── Layout options helper (shared by fresh build & incremental updates) ── */
@@ -714,13 +739,23 @@ export default function SupplyGraph({
   shipPlans,
   negotiations,
   analyticsMode,
+  simulationMode,
   onSelectAgent,
   onBack,
+  onDisrupt,
 }: SupplyGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const prevElementKey = useRef("");
   const [legendVisible, setLegendVisible] = useState(true);
+
+  // Refs to avoid stale closures in Cytoscape event handlers
+  const simulationModeRef = useRef(simulationMode);
+  simulationModeRef.current = simulationMode;
+  const onDisruptRef = useRef(onDisrupt);
+  onDisruptRef.current = onDisrupt;
+  const onSelectAgentRef = useRef(onSelectAgent);
+  onSelectAgentRef.current = onSelectAgent;
 
   const isOverview = selection.mode === "overview";
   const isLogistics = selection.mode === "logistics-detail";
@@ -775,11 +810,18 @@ export default function SupplyGraph({
           else analyticsClass = "bottleneck-normal";
         }
 
+        // Failed supplier class
+        if (n.failed) {
+          analyticsClass = analyticsClass ? `${analyticsClass} failed` : "failed";
+        }
+
         return {
           data: {
             id: n.id,
             label: analyticsMode === "risk" && n.reliabilityScore !== undefined
               ? `${n.label}\n${(n.reliabilityScore * 100).toFixed(0)}% / ESG: ${n.esgRating ?? "?"}`
+              : n.failed
+              ? `${n.label}\n[FAILED]`
               : n.label,
             role: n.role,
             framework: n.framework ?? "",
@@ -804,6 +846,11 @@ export default function SupplyGraph({
           if (ae.totalMessages >= 10) sizeClass += " cost-high";
           else if (ae.totalMessages >= 4) sizeClass += " cost-med";
           else sizeClass += " cost-low";
+        }
+
+        // Add disrupted class if this aggregated edge contains disrupted orders
+        if (ae.disrupted) {
+          sizeClass += " disrupted";
         }
 
         return {
@@ -831,10 +878,14 @@ export default function SupplyGraph({
       } else if (detailNodeIds.size > 0 && !detailNodeIds.has(n.id)) {
         classes.push("dimmed");
       }
+      // Add failed class for disrupted suppliers
+      if (n.failed) {
+        classes.push("failed");
+      }
       return {
         data: {
           id: n.id,
-          label: n.label,
+          label: n.failed ? `${n.label}\n[FAILED]` : n.label,
           role: n.role,
           framework: n.framework ?? "",
           skills: (n.skills ?? []).join(", "),
@@ -857,6 +908,7 @@ export default function SupplyGraph({
         edgeType: e.edgeType,
         animated: e.animated ?? false,
       },
+      classes: e.disrupted ? "disrupted" : "",
     }));
 
     return [...nodeEls, ...edgeEls];
@@ -891,6 +943,23 @@ export default function SupplyGraph({
       // Remove elements no longer present
       cy.elements().forEach((el: any) => {
         if (!newIds.has(el.id())) cy.remove(el);
+      });
+
+      // Update existing elements' classes and data
+      elements.forEach((elDef) => {
+        const elId = elDef.data?.id as string;
+        if (elId && existingIds.has(elId)) {
+          const cyEl = cy.getElementById(elId);
+          if (cyEl.length > 0) {
+            // Update data
+            if (elDef.data) {
+              cyEl.data(elDef.data);
+            }
+            // Update classes — use .classes(str) to SET the full class list (replaces all)
+            // Note: cyEl.removeClass('*') does NOT work — '*' is not a wildcard in Cytoscape.js
+            cyEl.classes(elDef.classes || '');
+          }
+        }
       });
 
       // Add new elements — nodes first, then edges (to avoid referencing missing nodes)
@@ -994,18 +1063,36 @@ export default function SupplyGraph({
       }
     });
 
-    // ── Click to drill down (overview mode only) ──
+    // ── Click to drill down or simulate disruption (overview mode only) ──
     cy.on("tap", "node", (evt) => {
       if (isOverview) {
         const nodeId = evt.target.id();
-        onSelectAgent(nodeId);
+        const nodeRole = evt.target.data("role");
+        const simMode = simulationModeRef.current; // always read current value
+        
+        // In simulation mode, clicking a supplier triggers disruption
+        if (simMode && nodeRole === "supplier") {
+          onDisruptRef.current(nodeId);
+        } else if (!simMode) {
+          // Only allow drilling down when NOT in simulation mode
+          onSelectAgentRef.current(nodeId);
+        }
       }
     });
 
     // Cursor style for overview nodes
     if (isOverview) {
-      cy.on("mouseover", "node", () => {
-        if (containerRef.current) containerRef.current.style.cursor = "pointer";
+      cy.on("mouseover", "node", (evt) => {
+        if (containerRef.current) {
+          const nodeRole = evt.target.data("role");
+          const simMode = simulationModeRef.current; // always read current value
+          // In simulation mode, show crosshair cursor for suppliers
+          if (simMode && nodeRole === "supplier") {
+            containerRef.current.style.cursor = "crosshair";
+          } else {
+            containerRef.current.style.cursor = "pointer";
+          }
+        }
       });
       cy.on("mouseout", "node", () => {
         if (containerRef.current) containerRef.current.style.cursor = "default";
@@ -1140,8 +1227,12 @@ export default function SupplyGraph({
 
       {/* ── Overview hint ── */}
       {isOverview && nodes.length > 0 && !analyticsBadge && (
-        <div className="absolute top-3 right-3 z-10 rounded-lg bg-slate-800/80 px-3 py-1.5 text-[0.6rem] text-slate-400 backdrop-blur-sm">
-          Click a node to drill down
+        <div className={`absolute top-3 right-3 z-10 rounded-lg px-3 py-1.5 text-[0.6rem] backdrop-blur-sm ${
+          simulationMode
+            ? "bg-red-900/80 text-red-300 ring-1 ring-red-500/40"
+            : "bg-slate-800/80 text-slate-400"
+        }`}>
+          {simulationMode ? "Click suppliers to fail them and see rerouting" : "Click a node to drill down"}
         </div>
       )}
 

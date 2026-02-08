@@ -33,9 +33,13 @@ const EVENT_COLORS: Record<string, string> = {
   REJECT_SENT: "#f87171",
   PART_MISSING: "#ef4444",
   ORDER_PLACED: "#22d3ee",
+  ORDER_FAILED: "#dc2626",
   LOGISTICS_REQUESTED: "#fb923c",
   SHIP_PLAN_RECEIVED: "#f97316",
   CASCADE_COMPLETE: "#a3e635",
+  DISRUPTION_DETECTED: "#ef4444",
+  REROUTING_STARTED: "#f59e0b",
+  REROUTING_COMPLETE: "#10b981",
 };
 
 /* ── Timeline phases in cascade order ────────────────────── */
@@ -47,6 +51,7 @@ const PHASE_ORDER = [
   { id: "negotiation", label: "Negotiation" },
   { id: "logistics", label: "Logistics" },
   { id: "plan", label: "Plan" },
+  { id: "rerouting", label: "Rerouting" },
 ];
 
 const PHASE_TRIGGERS: Record<string, { phase: string; action: "start" | "complete" }> = {
@@ -64,7 +69,10 @@ const PHASE_TRIGGERS: Record<string, { phase: string; action: "start" | "complet
   ORDER_PLACED: { phase: "negotiation", action: "complete" },
   LOGISTICS_REQUESTED: { phase: "logistics", action: "start" },
   SHIP_PLAN_RECEIVED: { phase: "logistics", action: "complete" },
-  CASCADE_COMPLETE: { phase: "intent", action: "complete" },
+  CASCADE_COMPLETE: { phase: "plan", action: "complete" },
+  DISRUPTION_DETECTED: { phase: "rerouting", action: "start" },
+  REROUTING_STARTED: { phase: "rerouting", action: "start" },
+  REROUTING_COMPLETE: { phase: "rerouting", action: "complete" },
 };
 
 // Handle CASCADE_COMPLETE event specially to mark both "intent" and "plan" as complete
@@ -116,12 +124,20 @@ function summariseEvent(evt: AgentEvent): string {
       return `Rejected: ${d.reason ?? d.rejection_reason ?? "—"}`;
     case "ORDER_PLACED":
       return `Order #${(d.order_id as string)?.slice(0, 8) ?? "?"} placed`;
+    case "ORDER_FAILED":
+      return `❌ Order failed: ${d.part ?? "?"} from ${d.supplier_name ?? d.supplier_id ?? "?"} — ${d.reason ?? "?"}`;
     case "LOGISTICS_REQUESTED":
       return `Ship request: ${d.pickup ?? "?"} → ${d.delivery ?? "?"}`;
     case "SHIP_PLAN_RECEIVED":
       return `Ship plan: ${(d.route as string[])?.join(" → ") ?? "?"} (${d.transit_time_days ?? "?"}d)`;
     case "CASCADE_COMPLETE":
       return "Coordination cascade complete";
+    case "DISRUPTION_DETECTED":
+      return `⚠️ Supplier ${d.supplier_id ?? "?"} failed`;
+    case "REROUTING_STARTED":
+      return `Rerouting ${d.part_count ?? "?"} parts from ${d.supplier_id ?? "?"}`;
+    case "REROUTING_COMPLETE":
+      return `✓ Rerouted ${d.rerouted_orders ?? "?"} orders to alternatives`;
     default:
       return evt.event_type;
   }
@@ -449,6 +465,15 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
           break;
         }
 
+        case "ORDER_FAILED": {
+          const orderId = (data.order_id as string) ?? "";
+          const failedOrder = orders.find((o) => o.orderId === orderId);
+          if (failedOrder) {
+            failedOrder.failed = true;
+          }
+          break;
+        }
+
         case "LOGISTICS_REQUESTED": {
           // Find or create logistics node
           const logAgents = [...nodesMap.values()].filter((n) => n.role === "logistics");
@@ -498,6 +523,33 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
         case "CASCADE_COMPLETE": {
           cascadeComplete = true;
           cascadeReport = data.report as Record<string, unknown> | undefined;
+          break;
+        }
+
+        case "DISRUPTION_DETECTED": {
+          // Mark the failed supplier node
+          const failedSupplierId = (data.supplier_id as string) ?? "";
+          const failedNode = nodesMap.get(failedSupplierId);
+          if (failedNode) {
+            failedNode.failed = true;
+            nodesMap.set(failedSupplierId, failedNode);
+          }
+          // Mark all order edges to this supplier as disrupted
+          edges.forEach((edge) => {
+            if (edge.target === failedSupplierId && edge.edgeType === "order") {
+              edge.disrupted = true;
+            }
+          });
+          break;
+        }
+
+        case "REROUTING_STARTED": {
+          // Just log the event - timeline phase triggers handle the rest
+          break;
+        }
+
+        case "REROUTING_COMPLETE": {
+          // Mark cascade complete again (allows stopping)
           break;
         }
       }
@@ -602,11 +654,16 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
           target: e.target,
           counts: {},
           totalMessages: 0,
+          disrupted: false,
         };
         aggMap.set(key, agg);
       }
       agg.counts[e.edgeType] = (agg.counts[e.edgeType] ?? 0) + 1;
       agg.totalMessages += 1;
+      // Mark aggregated edge as disrupted if any source edge is disrupted
+      if (e.disrupted) {
+        agg.disrupted = true;
+      }
     }
     const overviewEdges = [...aggMap.values()];
 

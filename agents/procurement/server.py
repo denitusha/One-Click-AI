@@ -52,9 +52,9 @@ from shared.schemas import (  # noqa: E402
 )
 
 try:
-    from .agent import AGENT_ID, AGENT_NAME, ProcurementState, procurement_graph  # noqa: E402
+    from .agent import AGENT_ID, AGENT_NAME, ProcurementState, procurement_graph, renegotiate_for_disruption  # noqa: E402
 except ImportError:
-    from agents.procurement.agent import AGENT_ID, AGENT_NAME, ProcurementState, procurement_graph  # noqa: E402
+    from agents.procurement.agent import AGENT_ID, AGENT_NAME, ProcurementState, procurement_graph, renegotiate_for_disruption  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -146,10 +146,11 @@ AGENT_FACTS = AgentFacts(
 )
 
 # ---------------------------------------------------------------------------
-# State: latest report (for GET /report)
+# State: latest report and state (for GET /report and disruption simulation)
 # ---------------------------------------------------------------------------
 
 _latest_report: dict[str, Any] | None = None
+_latest_state: dict[str, Any] | None = None
 _running = False
 
 
@@ -168,6 +169,12 @@ class IntentResponse(BaseModel):
     message: str = ""
     run_id: str = ""
     report: dict[str, Any] | None = None
+
+
+class DisruptionRequest(BaseModel):
+    """Body for ``POST /disrupt``."""
+    supplier_id: str = Field(..., description="ID of the supplier to simulate failure for")
+    run_id: str = Field(default="", description="Run ID to associate disruption events with")
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +264,7 @@ async def submit_intent(body: IntentRequest):
     Triggers the full coordination cascade:
     DECOMPOSE → DISCOVER → VERIFY → NEGOTIATE → PLAN
     """
-    global _latest_report, _running
+    global _latest_report, _latest_state, _running
 
     if _running:
         raise HTTPException(
@@ -280,6 +287,7 @@ async def submit_intent(body: IntentRequest):
 
         report = result.get("report", {})
         _latest_report = report
+        _latest_state = result  # Store full state for disruption simulation
 
         return IntentResponse(
             status="completed",
@@ -312,6 +320,52 @@ async def get_report():
             detail="No report available yet. Submit an intent first.",
         )
     return _latest_report
+
+
+@app.post("/disrupt")
+async def simulate_disruption(body: DisruptionRequest):
+    """Simulate a supplier failure and reroute affected orders.
+
+    Triggers re-negotiation for parts that were assigned to the failed supplier.
+    """
+    global _latest_state, _running
+
+    if _latest_state is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No completed cascade found. Submit an intent first.",
+        )
+
+    if _running:
+        raise HTTPException(
+            status_code=409,
+            detail="A procurement operation is already running. Please wait.",
+        )
+
+    logger.info("Simulating disruption for supplier: %s", body.supplier_id)
+    _running = True
+
+    try:
+        await renegotiate_for_disruption(
+            state=_latest_state,
+            failed_supplier_id=body.supplier_id,
+            run_id=body.run_id,
+        )
+
+        return {
+            "status": "completed",
+            "message": f"Rerouted orders from failed supplier {body.supplier_id}",
+            "supplier_id": body.supplier_id,
+            "run_id": body.run_id,
+        }
+    except Exception as exc:
+        logger.exception("Disruption simulation failed: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Disruption simulation failed: {exc}",
+        )
+    finally:
+        _running = False
 
 
 @app.get("/health")

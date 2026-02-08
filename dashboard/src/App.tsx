@@ -16,8 +16,10 @@ type SidebarTab = "navigator" | "messages" | "risks" | "report";
 const PROCUREMENT_URL = "http://localhost:6010";
 
 export default function App() {
-  const { events, connected, stopped, reconnect, disconnect, fetchHistory, clearEvents } = useWebSocket();
+  const { events, connected, stopped, reconnect, disconnect, fetchHistory, clearEvents, trimEventsTo, resetSimulationEvents } = useWebSocket();
   const [submitting, setSubmitting] = useState(false);
+  const [simulationMode, setSimulationMode] = useState(false);
+  const preDisruptEventCountRef = useRef<number>(0);
   const [runId, setRunId] = useState<string | null>(
     () => sessionStorage.getItem("runId")  // restore on refresh
   );
@@ -98,6 +100,11 @@ export default function App() {
     sessionStorage.removeItem("runId");
     setRunId(null);
     didDisconnect.current = false;
+    
+    // Exit simulation mode and reset
+    setSimulationMode(false);
+    preDisruptEventCountRef.current = 0;
+    
     reconnect(); // Create fresh WebSocket connection
     
     // Start new run
@@ -144,6 +151,35 @@ export default function App() {
   const handleSelectShipPlan = useCallback((index: number) => {
     setGraphSelection({ mode: "logistics-detail", shipPlanIndex: index });
   }, []);
+
+  const handleDisrupt = useCallback(async (supplierId: string) => {
+    if (!runId) return;
+    
+    // Reconnect WebSocket to receive rerouting events
+    reconnect();
+    
+    try {
+      await fetch(`${PROCUREMENT_URL}/disrupt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supplier_id: supplierId, run_id: runId }),
+      });
+    } catch (err) {
+      console.error("Failed to simulate disruption:", err);
+    }
+  }, [runId, reconnect]);
+
+  const handleToggleSimulation = useCallback(() => {
+    if (!simulationMode) {
+      // Entering simulation mode - store current event count
+      preDisruptEventCountRef.current = events.length;
+    } else {
+      // Exiting simulation mode - restore pre-disruption state
+      resetSimulationEvents(preDisruptEventCountRef.current > 0 ? preDisruptEventCountRef.current : events.length);
+      preDisruptEventCountRef.current = 0; // Reset for next simulation
+    }
+    setSimulationMode(!simulationMode);
+  }, [simulationMode, resetSimulationEvents, events.length]);
 
   const handleSelectMessage = useCallback((msg: MessageLogEntry) => {
     // Determine the right detail mode based on event type
@@ -194,6 +230,22 @@ export default function App() {
           nodeCount={nodes.length}
           edgeCount={edges.length}
         />
+        {cascadeComplete && (
+          <button
+            onClick={handleToggleSimulation}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[0.65rem] font-semibold transition-all ${
+              simulationMode
+                ? "bg-red-600/20 text-red-400 ring-1 ring-red-500/50"
+                : "bg-neutral-700/50 text-slate-400 hover:bg-neutral-600/50 hover:text-slate-200"
+            }`}
+            title={simulationMode ? "Click suppliers to simulate failure" : "Enable simulation mode"}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {simulationMode ? "Simulation Active" : "Simulation Mode"}
+          </button>
+        )}
         {stopped && (
           <button
             onClick={handleReset}
@@ -259,8 +311,10 @@ export default function App() {
               shipPlans={shipPlans}
               negotiations={negotiations}
               analyticsMode={analyticsMode}
+              simulationMode={simulationMode}
               onSelectAgent={handleSelectAgent}
               onBack={handleBack}
+              onDisrupt={handleDisrupt}
             />
           </div>
         </div>

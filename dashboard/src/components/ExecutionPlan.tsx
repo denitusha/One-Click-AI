@@ -363,17 +363,28 @@ function OrdersTab({ plan, onSelectOrder }: { plan: ExecutionPlan; onSelectOrder
         <div
           key={order.orderId}
           onClick={() => onSelectOrder?.(order.part, order.supplier)}
-          className={`rounded-lg border border-slate-700/30 bg-slate-800/30 p-3 transition-colors ${onSelectOrder ? "cursor-pointer hover:border-cyan-500/40 hover:bg-slate-800/60" : ""}`}
+          className={`rounded-lg border ${order.failed ? 'border-red-500/50 bg-red-900/20' : 'border-slate-700/30 bg-slate-800/30'} p-3 transition-colors ${onSelectOrder ? "cursor-pointer hover:border-cyan-500/40 hover:bg-slate-800/60" : ""}`}
         >
           {/* Order header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-cyan-500/20 text-[0.55rem] font-bold text-cyan-400">
-                {i + 1}
-              </span>
-              <span className="text-xs font-medium text-slate-200">
+              {order.failed ? (
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-red-500/20 text-[0.55rem] font-bold text-red-400">
+                  ✕
+                </span>
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-cyan-500/20 text-[0.55rem] font-bold text-cyan-400">
+                  {i + 1}
+                </span>
+              )}
+              <span className={`text-xs font-medium ${order.failed ? 'text-red-300 line-through' : 'text-slate-200'}`}>
                 {order.part}
               </span>
+              {order.failed && (
+                <span className="rounded-md bg-red-500/20 px-1.5 py-0.5 text-[0.5rem] font-semibold text-red-400">
+                  FAILED
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {onSelectOrder && (

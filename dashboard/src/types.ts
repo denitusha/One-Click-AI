@@ -71,6 +71,7 @@ export interface GraphNode {
   skills?: string[];
   reliabilityScore?: number;
   esgRating?: string;
+  failed?: boolean;  // true if supplier was disrupted
 }
 
 export interface GraphEdge {
@@ -80,6 +81,7 @@ export interface GraphEdge {
   label: string;
   edgeType: "discovery" | "rfq" | "quote" | "counter" | "accept" | "order" | "logistics" | "contract";
   animated?: boolean;
+  disrupted?: boolean;  // true if order was disrupted by supplier failure
 }
 
 /* ── Graph view / drill-down types ───────────────────────── */
@@ -100,6 +102,7 @@ export interface AggregatedEdge {
   target: string;
   counts: Record<string, number>; // edgeType -> count
   totalMessages: number;
+  disrupted?: boolean;  // true if any aggregated edge is disrupted
 }
 
 /* ── Message log ─────────────────────────────────────────── */
@@ -140,6 +143,7 @@ export interface OrderDetail {
   currency: string;
   leadTimeDays: number | null;
   timestamp: string;
+  failed?: boolean;  // true if order failed due to supplier disruption
 }
 
 export interface ShipPlanDetail {

@@ -24,6 +24,10 @@ interface UseWebSocketReturn {
   reset: () => Promise<void>;
   /** Clear all events from memory (no fetch). */
   clearEvents: () => void;
+  /** Trim events array to a specific count (for simulation reset). */
+  trimEventsTo: (count: number) => void;
+  /** Reset simulation: trim to pre-sim count and remove all disruption events. */
+  resetSimulationEvents: (preSimCount: number) => void;
 }
 
 /**
@@ -229,6 +233,24 @@ export function useWebSocket(): UseWebSocketReturn {
     setEvents([]);
   }, []);
 
+  // ── Trim events: keep only the first N events (for simulation reset) ──
+  const trimEventsTo = useCallback((count: number) => {
+    setEvents((prev) => prev.slice(0, count));
+  }, []);
+
+  // ── Reset simulation: trim to pre-sim count AND remove all disruption-related events ──
+  const resetSimulationEvents = useCallback((preSimCount: number) => {
+    setEvents((prev) => {
+      // First trim to the pre-simulation count
+      const trimmed = prev.slice(0, preSimCount);
+      // Then filter out ALL disruption-related events (from this or previous simulations)
+      return trimmed.filter((e) =>
+        e.event_type !== "DISRUPTION_DETECTED" &&
+        e.event_type !== "ORDER_FAILED"
+      );
+    });
+  }, []);
+
   // ── Single effect with empty deps — Strict Mode safe ──
   useEffect(() => {
     mountedRef.current = true;
@@ -242,5 +264,5 @@ export function useWebSocket(): UseWebSocketReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { events, connected, stopped, reconnect, disconnect, fetchHistory, reset, clearEvents };
+  return { events, connected, stopped, reconnect, disconnect, fetchHistory, reset, clearEvents, trimEventsTo, resetSimulationEvents };
 }

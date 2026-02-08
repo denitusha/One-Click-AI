@@ -1150,6 +1150,442 @@ def _build_report(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Disruption Simulation: Renegotiate for Failed Supplier
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def renegotiate_for_disruption(
+    state: dict[str, Any],
+    failed_supplier_id: str,
+    run_id: str = "",
+) -> None:
+    """Renegotiate orders affected by a supplier failure.
+
+    Finds all parts that were ordered from the failed supplier, excludes that
+    supplier from consideration, and re-runs negotiation with alternative suppliers.
+    Emits real-time events to the Event Bus so the dashboard can visualize the
+    rerouting process.
+    """
+    logger.info("▶ DISRUPTION SIMULATION: %s failed", failed_supplier_id)
+
+    # Emit disruption detected event
+    await _emit_event(
+        "DISRUPTION_DETECTED",
+        {
+            "supplier_id": failed_supplier_id,
+            "reason": "Simulated failure for demonstration",
+        },
+        run_id=run_id,
+    )
+
+    # Extract state data
+    orders = state.get("orders", [])
+    discovered_suppliers = state.get("discovered_suppliers", {})
+    verified_suppliers = state.get("verified_suppliers", {})
+    bom_dict = state.get("bom", {})
+    parts = bom_dict.get("parts", [])
+
+    # Find affected parts (those ordered from the failed supplier)
+    affected_parts = []
+    for order in orders:
+        if order.get("supplier_id") == failed_supplier_id:
+            part_name = order.get("part", "")
+            # Find the original part definition from BOM
+            part_def = next((p for p in parts if p.get("part_id") == part_name), None)
+            if part_def:
+                affected_parts.append({
+                    "part_id": part_name,
+                    "part_def": part_def,
+                    "original_order": order,
+                })
+
+    # Deduplicate by part_id (in case multiple orders exist for the same part)
+    seen_parts = set()
+    unique_affected = []
+    for ap in affected_parts:
+        if ap["part_id"] not in seen_parts:
+            seen_parts.add(ap["part_id"])
+            unique_affected.append(ap)
+    affected_parts = unique_affected
+
+    if not affected_parts:
+        logger.info("  No orders affected by %s failure", failed_supplier_id)
+        await _emit_event(
+            "REROUTING_COMPLETE",
+            {
+                "affected_parts": 0,
+                "supplier_id": failed_supplier_id,
+                "message": "No orders were affected by this supplier",
+            },
+            run_id=run_id,
+        )
+        return
+
+    logger.info("  %d parts affected by %s failure", len(affected_parts), failed_supplier_id)
+
+    # Emit ORDER_FAILED events for each affected order
+    for affected in affected_parts:
+        await _emit_event(
+            "ORDER_FAILED",
+            {
+                "order_id": affected["original_order"].get("order_id", ""),
+                "part": affected["part_id"],
+                "supplier_id": failed_supplier_id,
+                "supplier_name": affected["original_order"].get("supplier_name", failed_supplier_id),
+                "reason": "Supplier failure",
+            },
+            run_id=run_id,
+        )
+
+    # Emit rerouting started event
+    await _emit_event(
+        "REROUTING_STARTED",
+        {
+            "supplier_id": failed_supplier_id,
+            "affected_parts": [ap["part_id"] for ap in affected_parts],
+            "part_count": len(affected_parts),
+        },
+        run_id=run_id,
+    )
+
+    # Re-negotiate each affected part with alternative suppliers
+    new_orders: list[dict[str, Any]] = []
+    new_logistics_plans: list[dict[str, Any]] = []
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for affected in affected_parts:
+            part_id = affected["part_id"]
+            part_def = affected["part_def"]
+            original_order = affected["original_order"]
+
+            skill = part_def.get("skill_query", "")
+            quantity = part_def.get("quantity", 1)
+            compliance = part_def.get("compliance_requirements", [])
+
+            result = NegotiationResult(
+                part=part_id,
+                rfq_id=str(uuid.uuid4()),
+            )
+
+            # Find alternative suppliers (excluding the failed one)
+            supplier_addrs = discovered_suppliers.get(skill, [])
+            alternative_suppliers = [
+                s for s in supplier_addrs
+                if s.get("agent_id") in verified_suppliers
+                and s.get("agent_id") != failed_supplier_id
+            ]
+
+            if not alternative_suppliers:
+                logger.warning("  No alternative suppliers for %s", part_id)
+                await _emit_event(
+                    "PART_MISSING",
+                    {
+                        "part_id": part_id,
+                        "part_name": part_def.get("part_name", part_id),
+                        "reason": f"No alternatives available after {failed_supplier_id} failure",
+                        "skill_query": skill,
+                        "quantity": quantity,
+                        "system": part_def.get("system", ""),
+                    },
+                    run_id=run_id,
+                )
+                continue
+
+            # Send RFQs to alternative suppliers
+            rfq_payload = RFQPayload(
+                rfq_id=result.rfq_id,
+                part=part_id,
+                quantity=quantity,
+                required_by="2026-04-01",
+                delivery_location="Stuttgart, Germany",
+                compliance_requirements=compliance,
+                specs=part_def.get("specs", {}),
+            )
+
+            for supplier in alternative_suppliers:
+                sid = supplier.get("agent_id", "")
+                facts = verified_suppliers.get(sid, {})
+                base_url = facts.get("base_url", "")
+
+                if not base_url:
+                    facts_url = supplier.get("facts_url", "")
+                    base_url = facts_url.rsplit("/", 1)[0] if facts_url else ""
+
+                if not base_url:
+                    continue
+
+                # Send RFQ
+                envelope = make_envelope(
+                    MessageType.RFQ,
+                    from_agent=AGENT_ID,
+                    to_agent=sid,
+                    payload=rfq_payload,
+                    correlation_id=result.rfq_id,
+                )
+
+                await _emit_event(
+                    "RFQ_SENT",
+                    {
+                        "rfq_id": result.rfq_id,
+                        "part": part_id,
+                        "to_agent": sid,
+                        "supplier": sid,
+                        "supplier_name": facts.get("agent_name", sid),
+                        "quantity": quantity,
+                        "rerouting": True,
+                    },
+                    run_id=run_id,
+                )
+
+                try:
+                    resp = await client.post(
+                        f"{base_url}/rfq",
+                        json=envelope.model_dump(mode="json"),
+                    )
+                    resp.raise_for_status()
+                    quote_data = resp.json()
+
+                    # Check if rejected
+                    q_type = quote_data.get("type", "")
+                    if q_type in ("REJECT", "reject", MessageType.REJECT):
+                        continue
+
+                    # Extract quote
+                    q_payload = quote_data.get("payload", quote_data)
+
+                    quote = SupplierQuote(
+                        supplier_id=sid,
+                        supplier_name=facts.get("agent_name", sid),
+                        framework=facts.get("framework", "unknown"),
+                        rfq_id=result.rfq_id,
+                        part=part_id,
+                        unit_price=q_payload.get("unit_price", 0),
+                        currency=q_payload.get("currency", "EUR"),
+                        qty_available=q_payload.get("qty_available", 0),
+                        lead_time_days=q_payload.get("lead_time_days", 0),
+                        shipping_origin=q_payload.get("shipping_origin", ""),
+                        certifications=q_payload.get("certifications", []),
+                        reliability_score=facts.get("reliability_score", 0.9),
+                        esg_rating=facts.get("esg_rating", "A"),
+                        region=supplier.get("region", "EU") or "EU",
+                    )
+                    result.quotes.append(quote)
+
+                    await _emit_event(
+                        "QUOTE_RECEIVED",
+                        {
+                            "rfq_id": result.rfq_id,
+                            "part": part_id,
+                            "from_agent": sid,
+                            "supplier": sid,
+                            "supplier_name": facts.get("agent_name", sid),
+                            "unit_price": quote.unit_price,
+                            "lead_time_days": quote.lead_time_days,
+                            "framework": quote.framework,
+                            "rerouting": True,
+                        },
+                        run_id=run_id,
+                    )
+                except Exception as exc:
+                    logger.warning("  RFQ to %s failed: %s", sid, exc)
+
+            # Filter and rank quotes
+            result.quotes = [q for q in result.quotes if q.unit_price > 0]
+
+            if not result.quotes:
+                logger.warning("  No valid quotes for %s after rerouting", part_id)
+                continue
+
+            # Select winner (best quote)
+            winner = select_winner(result)
+            if not winner:
+                continue
+
+            result.winner = winner
+            result.accepted = True
+
+            # Place order with the new supplier
+            order_id = str(uuid.uuid4())
+            result.order_id = order_id
+
+            order_payload = OrderPayload(
+                order_id=order_id,
+                rfq_id=result.rfq_id,
+                part=part_id,
+                quantity=winner.qty_available,
+                unit_price=winner.unit_price,
+                currency=winner.currency,
+                total_price=round(winner.unit_price * winner.qty_available, 2),
+                delivery_location="Stuttgart, Germany",
+                required_by="2026-04-01",
+            )
+
+            accept_env = make_envelope(
+                MessageType.ACCEPT,
+                from_agent=AGENT_ID,
+                to_agent=winner.supplier_id,
+                payload=AcceptPayload(rfq_id=result.rfq_id, accepted=True),
+                correlation_id=result.rfq_id,
+            )
+
+            order_env = make_envelope(
+                MessageType.ORDER,
+                from_agent=AGENT_ID,
+                to_agent=winner.supplier_id,
+                payload=order_payload,
+                correlation_id=order_id,
+            )
+
+            winner_base_url = verified_suppliers.get(winner.supplier_id, {}).get("base_url", "")
+            if not winner_base_url:
+                facts_url_w = next(
+                    (s.get("facts_url", "") for s in alternative_suppliers if s.get("agent_id") == winner.supplier_id),
+                    "",
+                )
+                winner_base_url = facts_url_w.rsplit("/", 1)[0] if facts_url_w else ""
+
+            if winner_base_url:
+                try:
+                    await client.post(
+                        f"{winner_base_url}/order",
+                        json=order_env.model_dump(mode="json"),
+                    )
+
+                    await _emit_event(
+                        "ACCEPT_SENT",
+                        {
+                            "rfq_id": result.rfq_id,
+                            "part": part_id,
+                            "to_agent": winner.supplier_id,
+                            "supplier": winner.supplier_id,
+                            "supplier_name": winner.supplier_name,
+                            "rerouting": True,
+                        },
+                        run_id=run_id,
+                    )
+
+                    await _emit_event(
+                        "ORDER_PLACED",
+                        {
+                            "order_id": order_id,
+                            "part": part_id,
+                            "supplier_id": winner.supplier_id,
+                            "supplier": winner.supplier_id,
+                            "supplier_name": winner.supplier_name,
+                            "quantity": winner.qty_available,
+                            "unit_price": winner.unit_price,
+                            "total_price": order_payload.total_price,
+                            "currency": winner.currency,
+                            "lead_time_days": winner.lead_time_days,
+                            "rerouting": True,
+                        },
+                        run_id=run_id,
+                    )
+
+                    new_orders.append({
+                        "order_id": order_id,
+                        "part": part_id,
+                        "supplier_id": winner.supplier_id,
+                        "supplier_name": winner.supplier_name,
+                        "quantity": winner.qty_available,
+                        "unit_price": winner.unit_price,
+                        "total_price": order_payload.total_price,
+                        "currency": winner.currency,
+                        "lead_time_days": winner.lead_time_days,
+                    })
+
+                    # Request logistics for the new order
+                    logistics_req = LogisticsRequestPayload(
+                        order_id=order_id,
+                        part=part_id,
+                        pickup=winner.shipping_origin,
+                        delivery="Stuttgart, Germany",
+                        quantity=winner.qty_available,
+                        required_by="2026-04-01",
+                    )
+
+                    # Find logistics agent
+                    logistics_agents = [
+                        addr for skill_agents in discovered_suppliers.values()
+                        for addr in skill_agents
+                        if "logistics" in addr.get("agent_id", "").lower()
+                    ]
+
+                    if logistics_agents:
+                        log_agent = logistics_agents[0]
+                        log_id = log_agent.get("agent_id", "")
+                        log_base_url = log_agent.get("facts_url", "").rsplit("/", 1)[0]
+
+                        if log_base_url:
+                            logistics_env = make_envelope(
+                                MessageType.LOGISTICS_REQUEST,
+                                from_agent=AGENT_ID,
+                                to_agent=log_id,
+                                payload=logistics_req,
+                                correlation_id=order_id,
+                            )
+
+                            await _emit_event(
+                                "LOGISTICS_REQUESTED",
+                                {
+                                    "order_id": order_id,
+                                    "part": part_id,
+                                    "pickup": winner.shipping_origin,
+                                    "delivery": "Stuttgart, Germany",
+                                    "rerouting": True,
+                                },
+                                run_id=run_id,
+                            )
+
+                            try:
+                                log_resp = await client.post(
+                                    f"{log_base_url}/logistics",
+                                    json=logistics_env.model_dump(mode="json"),
+                                )
+                                log_resp.raise_for_status()
+                                ship_data = log_resp.json()
+                                ship_payload = ship_data.get("payload", ship_data)
+
+                                await _emit_event(
+                                    "SHIP_PLAN_RECEIVED",
+                                    {
+                                        "order_id": order_id,
+                                        "part": part_id,
+                                        "from_agent": log_id,
+                                        "route": ship_payload.get("route", []),
+                                        "transit_time_days": ship_payload.get("transit_time_days", 0),
+                                        "cost": ship_payload.get("cost", 0),
+                                        "pickup": ship_payload.get("pickup", ""),
+                                        "delivery": ship_payload.get("delivery", ""),
+                                        "estimated_arrival": ship_payload.get("estimated_arrival", ""),
+                                        "rerouting": True,
+                                    },
+                                    run_id=run_id,
+                                )
+
+                                new_logistics_plans.append(ship_payload)
+                            except Exception as exc:
+                                logger.warning("  Logistics request failed: %s", exc)
+
+                except Exception as exc:
+                    logger.warning("  Order placement failed: %s", exc)
+
+    # Emit rerouting complete
+    await _emit_event(
+        "REROUTING_COMPLETE",
+        {
+            "supplier_id": failed_supplier_id,
+            "affected_parts": len(affected_parts),
+            "rerouted_orders": len(new_orders),
+            "new_suppliers": list({o["supplier_id"] for o in new_orders}),
+            "message": f"Successfully rerouted {len(new_orders)} orders from {failed_supplier_id}",
+        },
+        run_id=run_id,
+    )
+
+    logger.info("  ✓ Rerouting complete: %d orders placed with alternatives", len(new_orders))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # LangGraph: build and compile the graph
 # ═══════════════════════════════════════════════════════════════════════════
 
