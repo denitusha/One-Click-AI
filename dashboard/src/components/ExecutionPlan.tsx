@@ -8,7 +8,7 @@ interface ExecutionPlanProps {
   onSelectShipPlan?: (index: number) => void;
 }
 
-type Tab = "overview" | "orders" | "shipping" | "report";
+type Tab = "overview" | "orders" | "shipping" | "missing" | "report";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   {
@@ -35,6 +35,15 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+      </svg>
+    ),
+  },
+  {
+    id: "missing",
+    label: "Missing",
+    icon: (
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
       </svg>
     ),
   },
@@ -164,6 +173,11 @@ export default function ExecutionPlanPanel({
                 {plan.shippingPlans}
               </span>
             )}
+            {tab.id === "missing" && plan.missingParts.length > 0 && (
+              <span className="ml-0.5 rounded-full bg-red-500/20 px-1 py-px text-[0.5rem] text-red-400">
+                {plan.missingParts.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -173,6 +187,7 @@ export default function ExecutionPlanPanel({
         {activeTab === "overview" && <OverviewTab plan={plan} />}
         {activeTab === "orders" && <OrdersTab plan={plan} onSelectOrder={onSelectOrder} />}
         {activeTab === "shipping" && <ShippingTab plan={plan} onSelectShipPlan={onSelectShipPlan} />}
+        {activeTab === "missing" && <MissingPartsTab plan={plan} />}
         {activeTab === "report" && (
           <ReportTab plan={plan} onDownload={handleDownload} />
         )}
@@ -219,6 +234,13 @@ function OverviewTab({ plan }: { plan: ExecutionPlan }) {
       sub: "routes",
       color: "text-orange-400",
       bgColor: "bg-orange-500/10",
+    },
+    {
+      label: "Missing Parts",
+      value: String(plan.missingParts.length),
+      sub: plan.missingParts.length > 0 ? "gaps" : "none",
+      color: plan.missingParts.length > 0 ? "text-red-400" : "text-slate-400",
+      bgColor: plan.missingParts.length > 0 ? "bg-red-500/10" : "bg-slate-500/10",
     },
     {
       label: "Est. Delivery",
@@ -552,6 +574,96 @@ function ShippingTab({ plan, onSelectShipPlan }: { plan: ExecutionPlan; onSelect
           )
         );
       })()}
+    </div>
+  );
+}
+
+/* ── Missing Parts Tab ────────────────────────────────────── */
+
+function MissingPartsTab({ plan }: { plan: ExecutionPlan }) {
+  if (plan.missingParts.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center p-4 text-slate-500">
+        <div className="text-center">
+          <svg
+            className="mx-auto mb-2 h-8 w-8 text-emerald-500/40"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <p className="text-xs font-medium text-emerald-400">All parts sourced</p>
+          <p className="mt-1 text-[0.6rem] text-slate-600">
+            Every BOM part has at least one qualifying supplier
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 p-3">
+      {/* Warning banner */}
+      <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+        <svg className="h-4 w-4 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>
+        <div>
+          <p className="text-xs font-medium text-red-300">
+            {plan.missingParts.length} part{plan.missingParts.length > 1 ? "s" : ""} could not be sourced
+          </p>
+          <p className="text-[0.55rem] text-red-400/70">
+            No suppliers met the relevance threshold for these parts
+          </p>
+        </div>
+      </div>
+
+      {/* Missing parts list */}
+      {plan.missingParts.map((mp, i) => (
+        <div
+          key={mp.partId ?? i}
+          className="rounded-lg border border-red-500/15 bg-slate-800/40 p-3"
+        >
+          {/* Part header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-red-500/20 text-[0.55rem] font-bold text-red-400">
+                {i + 1}
+              </span>
+              <span className="text-xs font-medium text-slate-200">
+                {mp.partName}
+              </span>
+            </div>
+            {mp.system && (
+              <span className="rounded-md bg-slate-700/40 px-1.5 py-0.5 text-[0.55rem] text-slate-400">
+                {mp.system}
+              </span>
+            )}
+          </div>
+
+          {/* Part details grid */}
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[0.6rem]">
+            <div>
+              <span className="text-slate-500">Skill Query</span>
+              <p className="font-mono font-medium text-amber-400/80">{mp.skillQuery}</p>
+            </div>
+            <div>
+              <span className="text-slate-500">Quantity Needed</span>
+              <p className="font-medium text-slate-300">{mp.quantity}</p>
+            </div>
+            <div className="col-span-2">
+              <span className="text-slate-500">Reason</span>
+              <p className="font-medium text-red-400/80">{mp.reason}</p>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

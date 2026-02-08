@@ -11,6 +11,7 @@ import type {
   OrderDetail,
   ShipPlanDetail,
   NegotiationRound,
+  MissingPart,
   AggregatedEdge,
   GraphSelection,
 } from "../types";
@@ -30,6 +31,7 @@ const EVENT_COLORS: Record<string, string> = {
   REVISED_RECEIVED: "#fbbf24",
   ACCEPT_SENT: "#4ade80",
   REJECT_SENT: "#f87171",
+  PART_MISSING: "#ef4444",
   ORDER_PLACED: "#22d3ee",
   LOGISTICS_REQUESTED: "#fb923c",
   SHIP_PLAN_RECEIVED: "#f97316",
@@ -52,6 +54,7 @@ const PHASE_TRIGGERS: Record<string, { phase: string; action: "start" | "complet
   BOM_GENERATED: { phase: "bom", action: "complete" },
   DISCOVERY_QUERY: { phase: "discovery", action: "start" },
   DISCOVERY_RESULT: { phase: "discovery", action: "start" },
+  PART_MISSING: { phase: "discovery", action: "start" },
   AGENTFACTS_FETCHED: { phase: "verification", action: "start" },
   VERIFICATION_RESULT: { phase: "verification", action: "start" },
   RFQ_SENT: { phase: "negotiation", action: "start" },
@@ -87,6 +90,8 @@ function summariseEvent(evt: AgentEvent): string {
       return `Searching for skill: ${d.skill ?? d.query ?? "?"}`;
     case "DISCOVERY_RESULT":
       return `Found ${(d.agents as unknown[])?.length ?? (d.results as unknown[])?.length ?? "?"} agents`;
+    case "PART_MISSING":
+      return `Missing: ${d.part_name ?? d.part_id ?? "?"} — ${d.reason ?? "no suppliers found"}`;
     case "AGENTFACTS_FETCHED":
       return `Fetched facts for ${d.agent_name ?? d.agent_id ?? "?"}`;
         case "VERIFICATION_RESULT":
@@ -150,6 +155,7 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
     // Detailed tracking for execution plan
     const orders: OrderDetail[] = [];
     const shipPlans: ShipPlanDetail[] = [];
+    const missingParts: MissingPart[] = [];
     const negotiationMap = new Map<string, NegotiationRound>(); // keyed by "part:supplier"
 
     for (const evt of filtered) {
@@ -246,6 +252,19 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
               });
             }
           }
+          break;
+        }
+
+        case "PART_MISSING": {
+          missingParts.push({
+            partId: (data.part_id as string) ?? "unknown",
+            partName: (data.part_name as string) ?? "Unknown",
+            skillQuery: (data.skill_query as string) ?? "",
+            quantity: (data.quantity as number) ?? 0,
+            system: (data.system as string) ?? "",
+            reason: (data.reason as string) ?? "No suppliers found",
+            timestamp: evt.timestamp,
+          });
           break;
         }
 
@@ -599,6 +618,7 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
       suppliersEngagedSize: suppliersEngaged.size,
       orders,
       shipPlans,
+      missingParts,
       negotiations: [...negotiationMap.values()],
       cascadeReport,
       lastDelivery,
@@ -620,6 +640,7 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
       estimatedDelivery: derivedState.lastDelivery,
       orders: derivedState.orders,
       shipPlans: derivedState.shipPlans,
+      missingParts: derivedState.missingParts,
       negotiations: derivedState.negotiations,
       report: derivedState.cascadeReport,
     };
@@ -633,6 +654,7 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
     derivedState.lastDelivery,
     derivedState.orders,
     derivedState.shipPlans,
+    derivedState.missingParts,
     derivedState.negotiations,
     derivedState.cascadeReport,
   ]);
