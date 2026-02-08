@@ -112,7 +112,7 @@ function SupplierCard({ risk }: { risk: SupplierRisk }) {
       className="rounded-lg border transition-colors"
       style={{
         borderColor: `${lc.border}30`,
-        backgroundColor: "rgba(15,23,42,0.6)",
+        backgroundColor: lc.bg,
       }}
     >
       {/* Header row */}
