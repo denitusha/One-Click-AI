@@ -102,6 +102,9 @@ class ProcurementState(TypedDict, total=False):
     negotiation_results: list[dict[str, Any]]  # serialised NegotiationResult list
     orders: list[dict[str, Any]]  # placed orders
 
+    # Phase: DISCOVER (missing parts — no suppliers found)
+    missing_parts: list[dict[str, Any]]
+
     # Phase: PLAN
     logistics_plans: list[dict[str, Any]]  # ShipPlan payloads
 
@@ -187,55 +190,149 @@ async def discover_node(state: ProcurementState) -> dict[str, Any]:
     parts: list[dict[str, Any]] = bom_dict.get("parts", [])
 
     discovered: dict[str, list[dict[str, Any]]] = {}
+    missing_parts: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
     errors: list[str] = []
+
+    min_score = 0.65
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         for part in parts:
             skill = part.get("skill_query", "")
-            # Extract keyword after "supply:" for search
-            keyword = skill.replace("supply:", "") if skill.startswith("supply:") else skill
+            part_id = part.get("part_id", "")
+            part_name = part.get("part_name", "")
+            description = part.get("description", "")
+            specs = part.get("specs", {})
+            compliance = part.get("compliance_requirements", [])
+            quantity = part.get("quantity", 1)
+            system = part.get("system", "")
+            
+            # Build a rich natural-language query from the BOM part
+            query = f"{part_name}"
+            if description:
+                query += f" - {description}"
+            if specs:
+                spec_str = ", ".join(f"{k}: {v}" for k, v in specs.items())
+                query += f" ({spec_str})"
+            
+            # Build the resolve request with min_score filtering
+            resolve_body = {
+                "query": query,
+                "skill_hint": skill,
+                "context": {
+                    "region": "EU",
+                    "compliance_requirements": compliance,
+                    "urgency": "standard",
+                },
+                "min_score": min_score,
+            }
 
             ev = await _emit_event(
                 "DISCOVERY_QUERY",
-                {"part": part.get("part_id"), "skill": skill, "keyword": keyword},
+                {
+                    "part": part_id,
+                    "skill": skill,
+                    "query": query,
+                    "method": "adaptive_resolver",
+                },
                 run_id=rid,
             )
             events.append(ev)
 
             try:
-                resp = await client.get(
-                    f"{INDEX_URL}/search",
-                    params={"skills": keyword},
+                resp = await client.post(
+                    f"{INDEX_URL}/resolve",
+                    json=resolve_body,
                 )
                 resp.raise_for_status()
-                results = resp.json()
+                resolved_agents = resp.json()
+                
+                # Convert ResolvedAgent list to AgentAddr-like dicts for compatibility
+                results = [
+                    {
+                        "agent_id": r.get("agent_id"),
+                        "agent_name": r.get("agent_name"),
+                        "facts_url": r.get("facts_url"),
+                        "skills": r.get("skills", []),
+                        "region": r.get("region"),
+                        "relevance_score": r.get("relevance_score", 0.0),
+                        "context_score": r.get("context_score", 0.0),
+                        "combined_score": r.get("combined_score", 0.0),
+                        "matched_skill": r.get("matched_skill", ""),
+                        "match_reason": r.get("match_reason", ""),
+                    }
+                    for r in resolved_agents
+                ]
+
+                # Double-filter: only keep suppliers with combined_score >= min_score
+                results = [
+                    r for r in results
+                    if r.get("combined_score", 0.0) >= min_score
+                ]
+
                 discovered[skill] = results
 
-                ev2 = await _emit_event(
-                    "DISCOVERY_RESULT",
-                    {
-                        "part": part.get("part_id"),
-                        "skill": skill,
-                        "suppliers_found": len(results),
-                        "supplier_ids": [r.get("agent_id") for r in results],
-                        "agents": [
-                            {
-                                "agent_id": r.get("agent_id"),
-                                "agent_name": r.get("agent_name", r.get("agent_id", "")),
-                            }
-                            for r in results
-                        ],
-                    },
-                    run_id=rid,
-                )
-                events.append(ev2)
-                logger.info(
-                    "  Found %d suppliers for %s (%s)",
-                    len(results),
-                    part.get("part_id"),
-                    skill,
-                )
+                if results:
+                    ev2 = await _emit_event(
+                        "DISCOVERY_RESULT",
+                        {
+                            "part": part_id,
+                            "skill": skill,
+                            "suppliers_found": len(results),
+                            "supplier_ids": [r.get("agent_id") for r in results],
+                            "agents": [
+                                {
+                                    "agent_id": r.get("agent_id"),
+                                    "agent_name": r.get("agent_name", r.get("agent_id", "")),
+                                    "relevance_score": r.get("relevance_score", 0.0),
+                                    "combined_score": r.get("combined_score", 0.0),
+                                    "match_reason": r.get("match_reason", ""),
+                                }
+                                for r in results
+                            ],
+                            "top_score": results[0].get("combined_score", 0.0) if results else 0.0,
+                        },
+                        run_id=rid,
+                    )
+                    events.append(ev2)
+                    logger.info(
+                        "  Resolved %d suppliers for %s (top_score=%.2f, method=%s)",
+                        len(results),
+                        part_id,
+                        results[0].get("combined_score", 0.0) if results else 0.0,
+                        results[0].get("match_reason", "none") if results else "none",
+                    )
+                else:
+                    # No suppliers passed the score threshold — mark as missing
+                    missing_entry = {
+                        "part_id": part_id,
+                        "part_name": part_name,
+                        "skill_query": skill,
+                        "quantity": quantity,
+                        "system": system,
+                        "reason": "No suppliers found above score threshold",
+                    }
+                    missing_parts.append(missing_entry)
+
+                    ev_miss = await _emit_event(
+                        "PART_MISSING",
+                        {
+                            "part_id": part_id,
+                            "part_name": part_name,
+                            "skill_query": skill,
+                            "quantity": quantity,
+                            "system": system,
+                            "reason": "No suppliers found above score threshold",
+                        },
+                        run_id=rid,
+                    )
+                    events.append(ev_miss)
+                    logger.warning(
+                        "  MISSING: %s (%s) — no suppliers above min_score=%.2f",
+                        part_id,
+                        skill,
+                        min_score,
+                    )
             except Exception as exc:
                 err = f"Discovery failed for {skill}: {exc}"
                 logger.warning("  %s", err)
@@ -244,6 +341,7 @@ async def discover_node(state: ProcurementState) -> dict[str, Any]:
 
     return {
         "discovered_suppliers": discovered,
+        "missing_parts": missing_parts,
         "phase": "DISCOVER",
         "events": events,
         "errors": errors,
@@ -930,6 +1028,7 @@ async def plan_node(state: ProcurementState) -> dict[str, Any]:
                 logistics_plans.append(placeholder)
 
     # --- Build Network Coordination Report ---
+    missing_parts = state.get("missing_parts", [])
     report = _build_report(
         bom_dict=bom_dict,
         discovered=discovered,
@@ -938,6 +1037,7 @@ async def plan_node(state: ProcurementState) -> dict[str, Any]:
         neg_results=neg_results,
         orders=orders,
         logistics_plans=logistics_plans,
+        missing_parts=missing_parts,
     )
 
     ev_final = await _emit_event(
@@ -948,6 +1048,7 @@ async def plan_node(state: ProcurementState) -> dict[str, Any]:
             "suppliers_engaged": report.get("execution_plan", {}).get(
                 "suppliers_engaged", 0
             ),
+            "missing_parts_count": len(missing_parts),
         },
         run_id=rid,
     )
@@ -971,6 +1072,7 @@ def _build_report(
     neg_results: list[dict[str, Any]],
     orders: list[dict[str, Any]],
     logistics_plans: list[dict[str, Any]],
+    missing_parts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Assemble the Network Coordination Report."""
     # Discovery paths
@@ -1043,6 +1145,7 @@ def _build_report(
             "details": neg_results,
         },
         "execution_plan": execution_plan,
+        "missing_parts": missing_parts or [],
     }
 
 
