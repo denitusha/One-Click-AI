@@ -8,6 +8,10 @@ __pycache__/
 *$py.class
 *.pyc
 
+# Node
+node_modules/
+dist/
+
 # Environment
 .env
 .venv/
