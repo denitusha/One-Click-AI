@@ -174,8 +174,10 @@ export default function App() {
       {/* ── Header ─────────────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-neutral-700/60 bg-neutral-900/70 px-5 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-            1C
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
           </div>
           <div>
             <h1 className="text-base font-semibold text-slate-100">
