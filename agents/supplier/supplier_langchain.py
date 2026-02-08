@@ -559,6 +559,7 @@ async def _register_with_index() -> None:
         "agent_name": AGENT_NAME,
         "facts_url": f"{BASE_URL}/agent-facts",
         "skills": [s.id for s in AGENT_FACTS.skills],
+        "skill_descriptions": {s.id: s.description for s in AGENT_FACTS.skills},
         "region": "EU",
         "ttl": 3600,
     }

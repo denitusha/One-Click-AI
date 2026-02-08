@@ -27,6 +27,10 @@ class BOMPart(BaseModel):
 
     part_id: str = Field(..., description="Short identifier, e.g. 'carbon_fiber_panels'")
     part_name: str = Field(..., description="Human-readable part name")
+    description: str = Field(
+        default="",
+        description="Natural language description of what this part is and what it's used for"
+    )
     system: str = Field(
         ..., description="Vehicle system this part belongs to (e.g. 'Chassis', 'Powertrain')"
     )
@@ -63,6 +67,7 @@ AUTOMOTIVE_TEMPLATE: list[dict[str, Any]] = [
     {
         "part_id": "carbon_fiber_panels",
         "part_name": "Carbon Fiber Body Panels",
+        "description": "Lightweight aerospace-grade carbon fiber composite panels for vehicle body construction",
         "system": "Chassis",
         "quantity": 12,
         "skill_query": "supply:carbon_fiber_panels",
@@ -72,6 +77,7 @@ AUTOMOTIVE_TEMPLATE: list[dict[str, Any]] = [
     {
         "part_id": "titanium_fasteners",
         "part_name": "Titanium Structural Fasteners",
+        "description": "High-strength titanium bolts for structural connections in chassis assembly",
         "system": "Chassis",
         "quantity": 500,
         "skill_query": "supply:titanium_fasteners",
@@ -152,6 +158,7 @@ IMPORTANT: Be context-aware! Understand what the user is asking for:
 Return ONLY a valid JSON array of parts. Each part must have:
 - part_id: short snake_case identifier (e.g., 'aluminum_cans', 'carbon_fiber_panels')
 - part_name: human-readable name
+- description: brief natural language description of what this part is and what it's used for
 - system: logical category/system for this product (e.g., 'Packaging', 'Ingredients', 
   'Manufacturing', 'Assembly', 'Electronics', 'Powertrain', 'Distribution', etc.)
 - quantity: integer > 0
