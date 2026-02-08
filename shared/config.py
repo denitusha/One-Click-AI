@@ -17,7 +17,9 @@ SUPPLIER_PORTS: dict[str, int] = {
     "supplier_b": 6002,  # Custom Python - Titanium & Ceramics
     "supplier_c": 6003,  # LangChain - Powertrain
     "supplier_d": 6005,  # CrewAI - Aluminum & Materials
-    "supplier_e": 6006,  # LangChain - Packaging & Ingredients
+    "supplier_f": 6007,  # CrewAI - Pirelli Tires
+    "supplier_g": 6008,  # LangChain - Michelin Tires
+    "supplier_h": 6009,  # Custom Python - Brakes
 }
 
 LOGISTICS_PORT = 6004

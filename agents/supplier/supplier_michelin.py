@@ -1,12 +1,11 @@
-"""Supplier E — Packaging & Ingredients — LangChain-powered agent.
+"""Supplier G — Michelin Tires — LangChain-powered agent.
 
 A simple LangChain chain (prompt template → ChatOpenAI → JSON output parser)
 handles incoming procurement requests.  The LLM generates competitive quotes
 and evaluates counter-offers based on inventory context injected via the prompt.
 
-Port 6006 · Skills: ``supply:labels_packaging``, ``supply:caffeine_supply``,
-                  ``supply:taurine_supply``, ``supply:bottling_equipment``,
-                  ``supply:distribution_supplies``
+Port 6008 · Skills: ``supply:michelin_pilot_sport``, ``supply:michelin_primacy``,
+                    ``supply:michelin_crossclimate``
 
 Endpoints
 ---------
@@ -65,7 +64,7 @@ from shared.schemas import (  # noqa: E402
 )
 
 from agents.supplier.inventory import (  # noqa: E402
-    SUPPLIER_E_CATALOG,
+    SUPPLIER_G_CATALOG,
     PartInfo,
     compute_volume_discount,
     evaluate_counter_offer,
@@ -89,17 +88,17 @@ except Exception:  # ImportError, ModuleNotFoundError, etc.
 # ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [supplier-e] %(levelname)s  %(message)s",
+    format="%(asctime)s [supplier-g] %(levelname)s  %(message)s",
     datefmt="%H:%M:%S",
 )
-logger = logging.getLogger("supplier_e")
+logger = logging.getLogger("supplier_g")
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-AGENT_ID = "supplier-e"
-AGENT_NAME = "Packaging & Ingredients Supplier (LangChain)"
-PORT = int(os.environ.get("PORT", SUPPLIER_PORTS["supplier_e"]))
+AGENT_ID = "supplier-g"
+AGENT_NAME = "Michelin Tires (LangChain)"
+PORT = int(os.environ.get("PORT", SUPPLIER_PORTS.get("supplier_g", 6008)))
 HOST = "0.0.0.0"
 BASE_URL = f"http://localhost:{PORT}"
 
@@ -142,10 +141,8 @@ def _init_chains() -> None:
             (
                 "system",
                 (
-                    "You are a pricing analyst at Packaging & Ingredients Supply Co., "
-                    "a European supplier of beverage supply chain components including "
-                    "packaging materials, ingredients, and bottling equipment, based "
-                    "in Brussels, Belgium.\n\n"
+                    "You are a pricing analyst at Michelin Tires, "
+                    "a global tire manufacturer based in Lyon, France.\n\n"
                     "Your job is to generate competitive price quotes for incoming "
                     "procurement requests based on inventory data provided below.\n\n"
                     "Always respond with ONLY a valid JSON object — no markdown "
@@ -193,7 +190,7 @@ def _init_chains() -> None:
             (
                 "system",
                 (
-                    "You are a pricing analyst at Packaging & Ingredients Supply Co. "
+                    "You are a pricing analyst at Michelin Tires. "
                     "Your job is to evaluate counter-offers from procurement agents.\n\n"
                     "Always respond with ONLY a valid JSON object — no markdown "
                     "fences, no explanation, no extra text."
@@ -330,7 +327,7 @@ async def _langchain_counter(
 
 def _deterministic_quote(part_name: str, quantity: int) -> dict[str, Any] | None:
     """Generate a quote using rule-based logic."""
-    part = lookup_part("supplier_e", part_name)
+    part = lookup_part("supplier_g", part_name)
     if part is None:
         return None
 
@@ -362,8 +359,8 @@ def _deterministic_counter_eval(
     target_price: float,
 ) -> dict[str, Any]:
     """Evaluate a counter-offer deterministically."""
-    result = evaluate_counter_offer("supplier_e", part_name, target_price)
-    part = lookup_part("supplier_e", part_name)
+    result = evaluate_counter_offer("supplier_g", part_name, target_price)
+    part = lookup_part("supplier_g", part_name)
 
     if result["accepted"]:
         return {
@@ -420,33 +417,22 @@ def _parse_json(raw_output: str) -> dict[str, Any] | None:
 AGENT_FACTS = AgentFacts(
     id=AGENT_ID,
     agent_name=AGENT_NAME,
-    label="Supplier E",
+    label="Supplier G",
     description=(
-        "Beverage supply chain specialist powered by LangChain. "
-        "Provides packaging materials, ingredients (caffeine, taurine), "
-        "bottling equipment, and distribution supplies for the beverage "
-        "industry. Uses LangChain prompt-template → ChatOpenAI → output-parser "
-        "chains for intelligent quote generation and counter-offer evaluation."
+        "Global tire manufacturer powered by LangChain. Specialises in "
+        "Michelin high-performance and touring tires for automotive applications. "
+        "Uses LangChain prompt-template → ChatOpenAI → output-parser chains "
+        "for intelligent quote generation and counter-offer evaluation."
     ),
     version="1.0.0",
     framework="langchain",
     jurisdiction="EU",
-    provider="Packaging & Ingredients Supply Co.",
+    provider="Michelin Tires",
     skills=[
         Skill(
-            id="supply:labels_packaging",
+            id="supply:michelin_pilot_sport",
             description=(
-                "Waterproof product labels and packaging materials with food-safe adhesive"
-            ),
-            input_modes=["application/json"],
-            output_modes=["application/json"],
-            supported_regions=["EU", "US"],
-            max_lead_time_days=3,
-        ),
-        Skill(
-            id="supply:caffeine_supply",
-            description=(
-                "Pharmaceutical grade caffeine powder, 99.9% purity, for beverage manufacturing"
+                "Pilot Sport 4S ultra-high performance tires for high-end sports cars"
             ),
             input_modes=["application/json"],
             output_modes=["application/json"],
@@ -454,34 +440,24 @@ AGENT_FACTS = AgentFacts(
             max_lead_time_days=10,
         ),
         Skill(
-            id="supply:taurine_supply",
+            id="supply:michelin_primacy",
             description=(
-                "Pharmaceutical grade taurine powder, 99.5% purity, for energy drink formulations"
+                "Primacy 4 touring tires for comfortable long-distance driving"
             ),
             input_modes=["application/json"],
             output_modes=["application/json"],
             supported_regions=["EU", "US"],
-            max_lead_time_days=10,
+            max_lead_time_days=8,
         ),
         Skill(
-            id="supply:bottling_equipment",
+            id="supply:michelin_crossclimate",
             description=(
-                "Automated bottling line equipment with capacity of 1000 bottles per hour"
+                "CrossClimate all-season tires for year-round versatility"
             ),
             input_modes=["application/json"],
             output_modes=["application/json"],
             supported_regions=["EU"],
-            max_lead_time_days=21,
-        ),
-        Skill(
-            id="supply:distribution_supplies",
-            description=(
-                "Corrugated cardboard shipping boxes and pallets for product distribution"
-            ),
-            input_modes=["application/json"],
-            output_modes=["application/json"],
-            supported_regions=["EU"],
-            max_lead_time_days=2,
+            max_lead_time_days=9,
         ),
     ],
     endpoints=[
@@ -508,61 +484,40 @@ AGENT_FACTS = AgentFacts(
         Endpoint(path="/health", method="GET", description="Health check"),
     ],
     evaluations=[
-        Evaluation(evaluator="self", score=0.88, metric="reliability"),
+        Evaluation(evaluator="self", score=0.91, metric="reliability"),
         Evaluation(
             evaluator="industry_benchmark",
-            score=0.85,
+            score=0.89,
             metric="delivery_accuracy",
         ),
     ],
     certifications=[
-        Certification(name="ISO 9001", issuer="TÜV Belgium"),
-        Certification(name="FDA", issuer="FDA"),
-        Certification(name="USP", issuer="USP"),
-        Certification(name="ISO 22000", issuer="TÜV Belgium"),
-        Certification(name="CE marking", issuer="EU Notified Body"),
+        Certification(name="ISO 9001", issuer="TÜV France"),
+        Certification(name="ECE R30", issuer="EU"),
+        Certification(name="EU Tire Label", issuer="EU"),
     ],
     policies=[
         Policy(
             name="min_order_qty",
-            description="Minimum order quantity varies by part",
+            description="Minimum order quantity per part",
             value={
-                "labels_packaging": 5000,
-                "caffeine_supply": 10,
-                "taurine_supply": 10,
-                "bottling_equipment": 1,
-                "distribution_supplies": 50,
+                "michelin_pilot_sport": 4,
+                "michelin_primacy": 4,
+                "michelin_crossclimate": 4,
             },
         ),
         Policy(
             name="floor_price_policy",
-            description=(
-                "Floor prices: 85-90% of base price depending on part type"
-            ),
-            value={
-                "labels_packaging": 0.90,
-                "caffeine_supply": 0.85,
-                "taurine_supply": 0.85,
-                "bottling_equipment": 0.80,
-                "distribution_supplies": 0.90,
-            },
+            description="Minimum 83-85% of base price on negotiations",
+            value=0.84,
         ),
         Policy(
             name="payment_terms",
             description="Net 30 days",
             value="net_30",
         ),
-        Policy(
-            name="negotiation_style",
-            description=(
-                "LLM-powered: LangChain chain evaluates pricing context and "
-                "generates nuanced responses. Falls back to deterministic "
-                "rules if the LLM is unavailable."
-            ),
-            value="langchain_llm",
-        ),
     ],
-    reliability_score=0.88,
+    reliability_score=0.91,
     esg_rating="A",
     base_url=BASE_URL,
 )
@@ -634,23 +589,23 @@ async def _emit_startup_event() -> None:
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     """Startup / shutdown lifecycle."""
-    logger.info("Supplier E (LangChain) starting on port %d …", PORT)
+    logger.info("Supplier G (Michelin - LangChain) starting on port %d …", PORT)
     _init_chains()
     await _register_with_index()
     await _emit_startup_event()
     logger.info(
-        "Supplier E ready at %s  (LangChain: %s)",
+        "Supplier G ready at %s  (LangChain: %s)",
         BASE_URL,
         "enabled" if LANGCHAIN_AVAILABLE and _llm is not None else "fallback-only",
     )
     yield
-    logger.info("Supplier E shutting down.")
+    logger.info("Supplier G shutting down.")
 
 
 app = FastAPI(
-    title="Supplier E — Packaging & Ingredients (LangChain)",
+    title="Supplier G — Michelin Tires (LangChain)",
     description=(
-        "LangChain-powered packaging and ingredients supplier agent with "
+        "LangChain-powered Michelin tire supplier agent with "
         "LLM-based quote generation and counter-offer evaluation."
     ),
     version="1.0.0",
@@ -712,7 +667,7 @@ async def receive_rfq(envelope: Envelope):
     }
 
     # --- Check catalogue ---
-    part_info = lookup_part("supplier_e", part_name)
+    part_info = lookup_part("supplier_g", part_name)
     if part_info is None:
         logger.info("Part '%s' not in catalogue — rejecting RFQ", part_name)
         await _emit_event(
@@ -889,7 +844,7 @@ async def receive_counter_offer(envelope: Envelope):
     decision: dict[str, Any] | None = None
     used_langchain = False
 
-    part_info = lookup_part("supplier_e", part_name) if part_name else None
+    part_info = lookup_part("supplier_g", part_name) if part_name else None
 
     if LANGCHAIN_AVAILABLE and _counter_chain is not None and part_info is not None:
         logger.info("Running LangChain counter-offer evaluation …")
@@ -1016,7 +971,7 @@ async def receive_order(envelope: Envelope):
     }
 
     # Optionally deduct stock (simulated)
-    part_info = lookup_part("supplier_e", part)
+    part_info = lookup_part("supplier_g", part)
     if part_info is not None:
         part_info.stock_quantity = max(0, part_info.stock_quantity - quantity)
         logger.info(
@@ -1048,12 +1003,12 @@ async def health():
     """Liveness / readiness probe."""
     return {
         "status": "ok",
-        "service": "supplier-e",
+        "service": "supplier-g",
         "framework": "langchain",
         "agent_id": AGENT_ID,
         "langchain_available": LANGCHAIN_AVAILABLE,
         "llm_initialised": _llm is not None,
-        "catalog_parts": list(SUPPLIER_E_CATALOG.keys()),
+        "catalog_parts": list(SUPPLIER_G_CATALOG.keys()),
         "active_rfqs": len(_rfq_store),
         "confirmed_orders": len(_order_store),
     }
@@ -1065,7 +1020,7 @@ async def health():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "supplier_packaging:app",
+        "supplier_michelin:app",
         host=HOST,
         port=PORT,
         reload=False,

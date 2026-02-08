@@ -75,6 +75,16 @@ AUTOMOTIVE_TEMPLATE: list[dict[str, Any]] = [
         "specs": {"material": "carbon fiber composite", "grade": "aerospace", "thickness_mm": 3.5},
     },
     {
+        "part_id": "aluminum_chassis",
+        "part_name": "Aluminum Chassis Frame",
+        "description": "Lightweight aluminum space-frame chassis, CNC machined and welded, ready for suspension attachment",
+        "system": "Chassis",
+        "quantity": 1,
+        "skill_query": "supply:aluminum_chassis",
+        "compliance_requirements": ["ISO 9001", "IATF 16949"],
+        "specs": {"material": "6061-T6 aluminum alloy", "type": "space-frame", "weight_kg": 45.0},
+    },
+    {
         "part_id": "titanium_fasteners",
         "part_name": "Titanium Structural Fasteners",
         "description": "High-strength titanium bolts for structural connections in chassis assembly",
@@ -103,13 +113,24 @@ AUTOMOTIVE_TEMPLATE: list[dict[str, Any]] = [
         "specs": {"type": "twin-scroll", "max_boost_bar": 1.8, "material": "inconel"},
     },
     {
-        "part_id": "ceramic_brake_calipers",
-        "part_name": "Ceramic Brake Calipers",
-        "system": "Braking",
+        "part_id": "pirelli_p_zero",
+        "part_name": "Pirelli P Zero High-Performance Tires",
+        "description": "P Zero ultra-high performance tires for sports cars and track use",
+        "system": "Tires",
         "quantity": 4,
-        "skill_query": "supply:ceramic_brake_calipers",
-        "compliance_requirements": ["ISO 9001", "ECE R90"],
-        "specs": {"material": "carbon-ceramic composite", "pistons": 6, "diameter_mm": 400},
+        "skill_query": "supply:pirelli_p_zero",
+        "compliance_requirements": ["ISO 9001", "ECE R30", "EU Tire Label"],
+        "specs": {"type": "performance", "size": "225/45R18", "speed_index": "Y"},
+    },
+    {
+        "part_id": "brake_system",
+        "part_name": "Complete Brake System Assembly",
+        "description": "Integrated brake system with master cylinder, calipers, discs, pads, ABS module, and hydraulic lines",
+        "system": "Braking",
+        "quantity": 1,
+        "skill_query": "supply:brake_system",
+        "compliance_requirements": ["ISO 9001", "ECE R90", "IATF 16949"],
+        "specs": {"type": "complete-system", "master_cylinder_bore_mm": 25, "abs_equipped": True},
     },
     {
         "part_id": "titanium_alloy",
@@ -119,24 +140,6 @@ AUTOMOTIVE_TEMPLATE: list[dict[str, Any]] = [
         "skill_query": "supply:titanium_alloy",
         "compliance_requirements": ["ISO 9001"],
         "specs": {"material": "Ti-6Al-4V", "type": "double_wishbone", "weight_kg": 2.8},
-    },
-    {
-        "part_id": "carbon_fiber_raw",
-        "part_name": "Carbon Fiber Raw Sheet Stock",
-        "system": "Interior",
-        "quantity": 20,
-        "skill_query": "supply:carbon_fiber_raw",
-        "compliance_requirements": ["REACH", "ISO 9001"],
-        "specs": {"material": "3K twill weave carbon fiber", "thickness_mm": 1.5, "size_m2": 1.2},
-    },
-    {
-        "part_id": "ecu_module",
-        "part_name": "Engine Control Unit Module",
-        "system": "Electronics",
-        "quantity": 1,
-        "skill_query": "supply:ecu_module",
-        "compliance_requirements": ["ISO 26262", "IATF 16949"],
-        "specs": {"processor": "ARM Cortex-R5", "flash_mb": 4, "can_channels": 6},
     },
 ]
 
@@ -155,22 +158,34 @@ IMPORTANT: Be context-aware! Understand what the user is asking for:
 - If they say "smartphone" → generate electronics parts
 - Adapt your categories to match the actual product type, NOT always to automotive
 
+AVAILABLE SUPPLIERS & PARTS (for automotive/vehicle builds):
+- Tires: supply:pirelli_p_zero, supply:pirelli_scorpion, supply:pirelli_cinturato, 
+         supply:michelin_pilot_sport, supply:michelin_primacy, supply:michelin_crossclimate
+- Brakes: supply:brake_discs, supply:brake_pads_ceramic, supply:brake_pads_semi_metallic, 
+          supply:brake_calipers_performance, supply:brake_system
+- Chassis: supply:aluminum_chassis, supply:carbon_fiber_panels
+- Powertrain: supply:aluminum_engine_block, supply:turbocharger_assembly
+- Materials: supply:titanium_alloy, supply:titanium_fasteners, supply:aluminum_engine_block, 
+             supply:aluminum_sheet_stock
+
+When generating BOMs for automotive/high-performance vehicles, PREFER using these 
+available part IDs from real suppliers. Use generic alternatives only if none match the intent.
+
 Return ONLY a valid JSON array of parts. Each part must have:
-- part_id: short snake_case identifier (e.g., 'aluminum_cans', 'carbon_fiber_panels')
-- part_name: human-readable name
+- part_id: short snake_case identifier (e.g., 'pirelli_p_zero', 'brake_system')
+- part_name: human-readable name (e.g., 'Pirelli P Zero Tires', 'Brake System')
 - description: brief natural language description of what this part is and what it's used for
-- system: logical category/system for this product (e.g., 'Packaging', 'Ingredients', 
-  'Manufacturing', 'Assembly', 'Electronics', 'Powertrain', 'Distribution', etc.)
+- system: logical category/system for this product (e.g., 'Braking', 'Suspension', 'Tires', etc.)
 - quantity: integer > 0
 - skill_query: NANDA skill keyword in format "supply:<part_id>" 
-  (e.g., "supply:aluminum_cans", "supply:carbon_fiber_panels")
-- compliance_requirements: list of required certifications (e.g., ['ISO 9001', 'FDA'])
+  (e.g., "supply:pirelli_p_zero", "supply:brake_system")
+- compliance_requirements: list of required certifications (e.g., ['ISO 9001', 'ECE R90'])
 - specs: dict of technical specifications relevant to the part
 
 Guidelines:
-1. Generate parts contextually relevant to the actual intent, not a fixed template
-2. Create logical system/category names that match the product type
-3. Vary part types and systems across different intents
+1. Match parts to available suppliers when possible to maximize supply chain connectivity
+2. For automotive builds, prefer tire and brake parts from the available suppliers
+3. Generate contextually relevant parts for the specific product type
 4. For any part_id you create, generate a corresponding "supply:<part_id>" skill_query
 5. Include realistic compliance requirements for each product type
 

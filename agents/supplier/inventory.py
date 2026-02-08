@@ -10,7 +10,9 @@ Suppliers
 - **B** (Custom Python) — titanium alloys, fasteners, ceramic brakes
 - **C** (LangChain) — powertrain components
 - **D** (CrewAI) — aluminum & materials (multi-industry)
-- **E** (LangChain) — packaging & ingredients (beverage supply chain)
+- **F** (CrewAI) — Pirelli tires (performance/racing)
+- **G** (LangChain) — Michelin tires (touring/all-season)
+- **H** (Custom Python) — brake components & systems
 """
 
 from __future__ import annotations
@@ -229,106 +231,262 @@ SUPPLIER_D_CATALOG: dict[str, PartInfo] = {
             "length_m": 2.4,
         },
     ),
+    "aluminum_chassis": PartInfo(
+        part_id="aluminum_chassis",
+        part_name="Aluminum Chassis Frame",
+        description="Lightweight aluminum space-frame chassis, CNC machined and welded, ready for suspension attachment",
+        base_price=4500.00,
+        stock_quantity=80,
+        lead_time_days=25,
+        shipping_origin="Amsterdam, Netherlands",
+        certifications=["ISO 9001", "IATF 16949"],
+        min_order_qty=1,
+        floor_price_pct=0.83,
+        specs={
+            "material": "6061-T6 aluminum alloy",
+            "type": "space-frame",
+            "weight_kg": 45.0,
+            "wheelbase_mm": 2750,
+            "track_width_mm": 1600,
+            "finish": "anodized",
+        },
+    ),
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Supplier E — Packaging & Ingredients (LangChain · port 6006)
-# Skills: supply:labels_packaging, supply:caffeine_supply, supply:taurine_supply,
-#         supply:bottling_equipment, supply:distribution_supplies
+# Supplier F — Pirelli Tires (CrewAI · port 6007)
+# Skills: supply:pirelli_p_zero, supply:pirelli_scorpion, supply:pirelli_cinturato
 # ═══════════════════════════════════════════════════════════════════════════
 
-SUPPLIER_E_CATALOG: dict[str, PartInfo] = {
-    "labels_packaging": PartInfo(
-        part_id="labels_packaging",
-        part_name="Product Labels and Packaging Materials",
-        description="Waterproof product labels with food-safe adhesive for beverage packaging",
-        base_price=0.08,
-        stock_quantity=100000,
-        lead_time_days=3,
-        shipping_origin="Brussels, Belgium",
-        certifications=["FDA", "ISO 22000"],
-        min_order_qty=5000,
-        floor_price_pct=0.90,
+SUPPLIER_F_CATALOG: dict[str, PartInfo] = {
+    "pirelli_p_zero": PartInfo(
+        part_id="pirelli_p_zero",
+        part_name="Pirelli P Zero High-Performance Tires",
+        description="P Zero ultra-high performance tires for sports cars and track use",
+        base_price=350.00,
+        stock_quantity=400,
+        lead_time_days=10,
+        shipping_origin="Milan, Italy",
+        certifications=["ISO 9001", "ECE R30", "EU Tire Label"],
+        min_order_qty=4,
+        floor_price_pct=0.82,
         specs={
-            "material": "waterproof vinyl",
-            "adhesive": "food-safe acrylic",
-            "sizes_mm": ["50x30", "75x50", "100x75"],
-            "print_quality": "300 DPI",
+            "type": "performance",
+            "size": "225/45R18",
+            "speed_index": "Y",
+            "load_index": "95",
+            "wet_grip": "A",
         },
     ),
-    "caffeine_supply": PartInfo(
-        part_id="caffeine_supply",
-        part_name="Caffeine Powder",
-        description="Pharmaceutical grade caffeine powder, 99.9% purity, for beverage manufacturing",
-        base_price=65.00,
-        stock_quantity=1000,
-        lead_time_days=8,
-        shipping_origin="Brussels, Belgium",
-        certifications=["FDA", "USP", "ISO 22000"],
-        min_order_qty=10,
+    "pirelli_scorpion": PartInfo(
+        part_id="pirelli_scorpion",
+        part_name="Pirelli Scorpion SUV Tires",
+        description="Scorpion tires designed for SUVs and crossover vehicles",
+        base_price=280.00,
+        stock_quantity=300,
+        lead_time_days=12,
+        shipping_origin="Milan, Italy",
+        certifications=["ISO 9001", "ECE R30", "EU Tire Label"],
+        min_order_qty=4,
+        floor_price_pct=0.83,
+        specs={
+            "type": "suv",
+            "size": "255/55R18",
+            "speed_index": "H",
+            "load_index": "109",
+            "wet_grip": "B",
+        },
+    ),
+    "pirelli_cinturato": PartInfo(
+        part_id="pirelli_cinturato",
+        part_name="Pirelli Cinturato Eco-Performance Tires",
+        description="Cinturato eco-performance tires with excellent fuel efficiency",
+        base_price=180.00,
+        stock_quantity=600,
+        lead_time_days=7,
+        shipping_origin="Milan, Italy",
+        certifications=["ISO 9001", "ECE R30", "EU Tire Label"],
+        min_order_qty=4,
         floor_price_pct=0.85,
         specs={
-            "purity": "99.9%",
-            "grade": "pharmaceutical",
-            "form": "powder",
-            "packaging": "25kg bags",
-            "shelf_life_years": 3,
+            "type": "eco-performance",
+            "size": "205/55R16",
+            "speed_index": "V",
+            "load_index": "91",
+            "wet_grip": "B",
+            "fuel_efficiency": "A",
         },
     ),
-    "taurine_supply": PartInfo(
-        part_id="taurine_supply",
-        part_name="Taurine Powder",
-        description="Pharmaceutical grade taurine powder, 99.5% purity, for energy drink formulations",
-        base_price=40.00,
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Supplier G — Michelin Tires (LangChain · port 6008)
+# Skills: supply:michelin_pilot_sport, supply:michelin_primacy, supply:michelin_crossclimate
+# ═══════════════════════════════════════════════════════════════════════════
+
+SUPPLIER_G_CATALOG: dict[str, PartInfo] = {
+    "michelin_pilot_sport": PartInfo(
+        part_id="michelin_pilot_sport",
+        part_name="Michelin Pilot Sport 4S Ultra-High Performance Tires",
+        description="Pilot Sport 4S premium performance tires for high-end sports cars",
+        base_price=320.00,
+        stock_quantity=350,
+        lead_time_days=10,
+        shipping_origin="Lyon, France",
+        certifications=["ISO 9001", "ECE R30", "EU Tire Label"],
+        min_order_qty=4,
+        floor_price_pct=0.83,
+        specs={
+            "type": "performance",
+            "size": "235/40R18",
+            "speed_index": "Y",
+            "load_index": "95",
+            "wet_grip": "A",
+        },
+    ),
+    "michelin_primacy": PartInfo(
+        part_id="michelin_primacy",
+        part_name="Michelin Primacy 4 Touring Tires",
+        description="Primacy 4 touring tires for comfortable long-distance driving",
+        base_price=200.00,
         stock_quantity=500,
         lead_time_days=8,
-        shipping_origin="Brussels, Belgium",
-        certifications=["FDA", "USP", "ISO 22000"],
-        min_order_qty=10,
+        shipping_origin="Lyon, France",
+        certifications=["ISO 9001", "ECE R30", "EU Tire Label"],
+        min_order_qty=4,
         floor_price_pct=0.85,
         specs={
-            "purity": "99.5%",
-            "grade": "pharmaceutical",
-            "form": "powder",
-            "packaging": "20kg bags",
-            "shelf_life_years": 2,
+            "type": "touring",
+            "size": "215/55R17",
+            "speed_index": "V",
+            "load_index": "98",
+            "wet_grip": "A",
+            "rolling_resistance": "B",
         },
     ),
-    "bottling_equipment": PartInfo(
-        part_id="bottling_equipment",
-        part_name="Automated Bottling Line Equipment",
-        description="Automated bottling line equipment with capacity of 1000 bottles per hour",
-        base_price=8000.00,
-        stock_quantity=10,
-        lead_time_days=18,
-        shipping_origin="Brussels, Belgium",
-        certifications=["ISO 9001", "CE marking"],
+    "michelin_crossclimate": PartInfo(
+        part_id="michelin_crossclimate",
+        part_name="Michelin CrossClimate All-Season Tires",
+        description="CrossClimate all-season tires for year-round versatility",
+        base_price=220.00,
+        stock_quantity=450,
+        lead_time_days=9,
+        shipping_origin="Lyon, France",
+        certifications=["ISO 9001", "ECE R30", "EU Tire Label"],
+        min_order_qty=4,
+        floor_price_pct=0.84,
+        specs={
+            "type": "all-season",
+            "size": "225/50R17",
+            "speed_index": "V",
+            "load_index": "98",
+            "wet_grip": "A",
+            "winter_grip": "3PMSF",
+        },
+    ),
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Supplier H — Brake Components (Custom Python · port 6009)
+# Skills: supply:brake_discs, supply:brake_pads_ceramic, supply:brake_pads_semi_metallic,
+#         supply:brake_calipers_performance
+# ═══════════════════════════════════════════════════════════════════════════
+
+SUPPLIER_H_CATALOG: dict[str, PartInfo] = {
+    "brake_discs": PartInfo(
+        part_id="brake_discs",
+        part_name="Ventilated Brake Discs",
+        description="High-performance ventilated brake discs with cast iron construction",
+        base_price=120.00,
+        stock_quantity=800,
+        lead_time_days=7,
+        shipping_origin="Stuttgart, Germany",
+        certifications=["ISO 9001", "ECE R90", "IATF 16949"],
+        min_order_qty=2,
+        floor_price_pct=0.85,
+        specs={
+            "material": "cast iron",
+            "type": "ventilated",
+            "diameter_mm": 330,
+            "thickness_mm": 30,
+            "weight_kg": 3.2,
+        },
+    ),
+    "brake_pads_ceramic": PartInfo(
+        part_id="brake_pads_ceramic",
+        part_name="Ceramic Brake Pads",
+        description="Low-dust ceramic brake pads for street and performance driving",
+        base_price=85.00,
+        stock_quantity=1000,
+        lead_time_days=5,
+        shipping_origin="Stuttgart, Germany",
+        certifications=["ISO 9001", "ECE R90", "IATF 16949"],
+        min_order_qty=4,
+        floor_price_pct=0.80,
+        specs={
+            "material": "ceramic",
+            "dust_level": "low",
+            "friction_coefficient": 0.45,
+            "temperature_range_c": "-40 to 400",
+        },
+    ),
+    "brake_pads_semi_metallic": PartInfo(
+        part_id="brake_pads_semi_metallic",
+        part_name="Semi-Metallic Brake Pads",
+        description="High-performance semi-metallic brake pads for aggressive driving",
+        base_price=55.00,
+        stock_quantity=1200,
+        lead_time_days=4,
+        shipping_origin="Stuttgart, Germany",
+        certifications=["ISO 9001", "ECE R90", "IATF 16949"],
+        min_order_qty=4,
+        floor_price_pct=0.82,
+        specs={
+            "material": "semi-metallic",
+            "dust_level": "high",
+            "friction_coefficient": 0.55,
+            "temperature_range_c": "-40 to 600",
+        },
+    ),
+    "brake_calipers_performance": PartInfo(
+        part_id="brake_calipers_performance",
+        part_name="Performance 4-Piston Brake Calipers",
+        description="High-performance aluminum 4-piston brake calipers for track use",
+        base_price=450.00,
+        stock_quantity=200,
+        lead_time_days=14,
+        shipping_origin="Stuttgart, Germany",
+        certifications=["ISO 9001", "ECE R90", "IATF 16949"],
         min_order_qty=1,
         floor_price_pct=0.80,
         specs={
-            "capacity_bottles_per_hour": 1000,
-            "bottle_sizes_ml": [250, 330, 500],
-            "automation_level": "fully automated",
-            "power_consumption_kw": 15,
-            "footprint_m2": 25,
+            "material": "aluminum",
+            "pistons": 4,
+            "bore_diameter_mm": 38,
+            "rotor_diameter_mm": 330,
+            "weight_kg": 2.1,
         },
     ),
-    "distribution_supplies": PartInfo(
-        part_id="distribution_supplies",
-        part_name="Distribution Supplies",
-        description="Corrugated cardboard shipping boxes and pallets for product distribution",
-        base_price=3.50,
-        stock_quantity=5000,
-        lead_time_days=2,
-        shipping_origin="Brussels, Belgium",
-        certifications=["ISO 9001"],
-        min_order_qty=50,
-        floor_price_pct=0.90,
+    "brake_system": PartInfo(
+        part_id="brake_system",
+        part_name="Complete Brake System Assembly",
+        description="Integrated brake system with master cylinder, calipers, discs, pads, ABS module, and hydraulic lines, ready for vehicle integration",
+        base_price=3200.00,
+        stock_quantity=120,
+        lead_time_days=20,
+        shipping_origin="Stuttgart, Germany",
+        certifications=["ISO 9001", "ECE R90", "IATF 16949"],
+        min_order_qty=1,
+        floor_price_pct=0.81,
         specs={
-            "material": "corrugated cardboard",
-            "sizes_cm": ["40x30x25", "50x40x30", "60x40x40"],
-            "weight_capacity_kg": 25,
-            "stackable": True,
+            "type": "complete-system",
+            "master_cylinder_bore_mm": 25,
+            "num_calipers": 4,
+            "num_discs": 2,
+            "abs_equipped": True,
+            "max_brake_force_kn": 45.0,
+            "weight_kg": 28.5,
+            "integration": "plug-and-play",
         },
     ),
 }
@@ -342,7 +500,9 @@ ALL_CATALOGS: dict[str, dict[str, PartInfo]] = {
     "supplier_b": SUPPLIER_B_CATALOG,
     "supplier_c": SUPPLIER_C_CATALOG,
     "supplier_d": SUPPLIER_D_CATALOG,
-    "supplier_e": SUPPLIER_E_CATALOG,
+    "supplier_f": SUPPLIER_F_CATALOG,
+    "supplier_g": SUPPLIER_G_CATALOG,
+    "supplier_h": SUPPLIER_H_CATALOG,
 }
 
 

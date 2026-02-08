@@ -46,7 +46,7 @@ for arg in "$@"; do
                 rm -f "$PIDS_FILE"
             fi
             # Also kill by port as a safety net
-            for port in 6900 6020 6001 6002 6003 6004 6005 6006 6010; do
+            for port in 6900 6020 6001 6002 6003 6004 6005 6007 6008 6009 6010; do
                 lsof -ti ":$port" 2>/dev/null | xargs kill 2>/dev/null || true
             done
             echo "All services stopped."
@@ -65,7 +65,7 @@ mkdir -p "$LOG_DIR"
 rm -f "$PIDS_FILE"
 
 # ── Kill any leftover processes on our ports ─────────────────────────────
-ALL_PORTS=(6900 6020 6001 6002 6003 6004 6005 6006 6010)
+ALL_PORTS=(6900 6020 6001 6002 6003 6004 6005 6007 6008 6009 6010)
 stale_found=false
 for port in "${ALL_PORTS[@]}"; do
     pids=$(lsof -ti ":$port" 2>/dev/null || true)
@@ -214,15 +214,31 @@ start_service \
     "http://localhost:6005/health" \
     "$GREEN"
 
-# ── 9. Supplier E (Packaging & Ingredients - LangChain) ──────────────────
+# ── 9. Supplier F (Pirelli Tires - CrewAI) ───────────────────────────────
 start_service \
-    "supplier-e" \
-    "supplier_packaging.py" \
+    "supplier-f" \
+    "supplier_pirelli.py" \
     "$SCRIPT_DIR/agents/supplier" \
-    "http://localhost:6006/health" \
+    "http://localhost:6007/health" \
     "$GREEN"
 
-# ── 10. Dashboard (React + Vite) ──────────────────────────────────────────
+# ── 10. Supplier G (Michelin Tires - LangChain) ───────────────────────────
+start_service \
+    "supplier-g" \
+    "supplier_michelin.py" \
+    "$SCRIPT_DIR/agents/supplier" \
+    "http://localhost:6008/health" \
+    "$GREEN"
+
+# ── 11. Supplier H (Brakes - Custom Python) ───────────────────────────────
+start_service \
+    "supplier-h" \
+    "supplier_brakes.py" \
+    "$SCRIPT_DIR/agents/supplier" \
+    "http://localhost:6009/health" \
+    "$GREEN"
+
+# ── 12. Dashboard (React + Vite) ──────────────────────────────────────────
 if [ "$NO_DASHBOARD" = false ]; then
     echo -e "${MAGENTA}▶ Starting dashboard...${NC}"
     cd "$SCRIPT_DIR/dashboard"
@@ -257,7 +273,9 @@ echo "    Supplier B (Custom) ..... http://localhost:6002"
 echo "    Supplier C (LangChain) .. http://localhost:6003"
 echo "    Logistics (AutoGen) ..... http://localhost:6004"
 echo "    Supplier D (CrewAI) ..... http://localhost:6005"
-echo "    Supplier E (LangChain) .. http://localhost:6006"
+echo "    Supplier F (CrewAI) ..... http://localhost:6007"
+echo "    Supplier G (LangChain) .. http://localhost:6008"
+echo "    Supplier H (Custom) ..... http://localhost:6009"
 echo "    Procurement (LangGraph) . http://localhost:6010"
 if [ "$NO_DASHBOARD" = false ]; then
 echo "    Dashboard ............... http://localhost:3000"

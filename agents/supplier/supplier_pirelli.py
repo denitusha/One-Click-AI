@@ -1,11 +1,12 @@
-"""Supplier D — Aluminum & Materials — CrewAI-powered agent.
+"""Supplier F — Pirelli Tires — CrewAI-powered agent.
 
 A two-role CrewAI crew handles incoming procurement requests:
 
 - **Inventory Checker**: validates stock availability for requested parts.
 - **Pricing Analyst**: generates competitive quotes and evaluates counter-offers.
 
-Port 6005 · Skills: ``supply:aluminum_cans``, ``supply:aluminum_engine_block``, ``supply:aluminum_sheet_stock``
+Port 6007 · Skills: ``supply:pirelli_p_zero``, ``supply:pirelli_scorpion``,
+                   ``supply:pirelli_cinturato``
 
 Endpoints
 ---------
@@ -64,7 +65,7 @@ from shared.schemas import (  # noqa: E402
 )
 
 from agents.supplier.inventory import (  # noqa: E402
-    SUPPLIER_D_CATALOG,
+    SUPPLIER_F_CATALOG,
     PartInfo,
     compute_volume_discount,
     evaluate_counter_offer,
@@ -87,17 +88,17 @@ except Exception:  # ImportError, ModuleNotFoundError, etc.
 # ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [supplier-d] %(levelname)s  %(message)s",
+    format="%(asctime)s [supplier-f] %(levelname)s  %(message)s",
     datefmt="%H:%M:%S",
 )
-logger = logging.getLogger("supplier_d")
+logger = logging.getLogger("supplier_f")
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-AGENT_ID = "supplier-d"
-AGENT_NAME = "Aluminum & Materials Supplier (CrewAI)"
-PORT = int(os.environ.get("PORT", SUPPLIER_PORTS["supplier_d"]))
+AGENT_ID = "supplier-f"
+AGENT_NAME = "Pirelli Tires (CrewAI)"
+PORT = int(os.environ.get("PORT", SUPPLIER_PORTS.get("supplier_f", 6007)))
 HOST = "0.0.0.0"
 BASE_URL = f"http://localhost:{PORT}"
 
@@ -115,10 +116,10 @@ if CREWAI_AVAILABLE:
 
     @crewai_tool("Check Inventory")
     def check_inventory_tool(part_name: str) -> str:
-        """Check the warehouse inventory for a specific aluminum or materials part.
+        """Check the warehouse inventory for a specific tire product.
         Returns stock quantity, base price, lead time, and certifications.
-        Use part identifiers like 'aluminum_cans', 'aluminum_engine_block', or 'aluminum_sheet_stock'."""
-        part = lookup_part("supplier_d", part_name)
+        Use part identifiers like 'pirelli_p_zero', 'pirelli_scorpion', or 'pirelli_cinturato'."""
+        part = lookup_part("supplier_f", part_name)
         if part is None:
             return f"Part '{part_name}' NOT FOUND in our inventory. We do not supply this part."
         return (
@@ -136,11 +137,11 @@ if CREWAI_AVAILABLE:
 
     @crewai_tool("Calculate Pricing")
     def calculate_pricing_tool(part_name: str, quantity: int) -> str:
-        """Calculate optimal pricing for a part and quantity.
+        """Calculate optimal pricing for a tire part and quantity.
         Returns recommended unit price, total cost, and volume discount details.
-        part_name should be like 'aluminum_cans' or 'aluminum_engine_block'. quantity is the number of units."""
+        part_name should be like 'pirelli_p_zero'. quantity is the number of units."""
         qty = int(quantity) if isinstance(quantity, str) else quantity
-        part = lookup_part("supplier_d", part_name)
+        part = lookup_part("supplier_f", part_name)
         if part is None:
             return f"Cannot calculate pricing: part '{part_name}' not in our catalogue."
 
@@ -182,16 +183,15 @@ def _build_rfq_crew(
     inventory_checker = Agent(
         role="Inventory Checker",
         goal=(
-            "Verify part availability and stock levels for incoming purchase "
+            "Verify tire part availability and stock levels for incoming purchase "
             "requests.  Report accurate inventory status including quantities, "
             "lead times, and certifications."
         ),
         backstory=(
-            "You are a meticulous warehouse inventory specialist at Aluminum & "
-            "Materials Supply Co., a leading European multi-industry supplier of "
-            "aluminum products serving automotive, beverage, and manufacturing "
-            "sectors.  Your expertise ensures accurate stock reporting and reliable "
-            "supply commitments across diverse industries."
+            "You are a meticulous warehouse inventory specialist at Pirelli Tires, "
+            "a leading global supplier of high-performance tires for the automotive "
+            "industry.  Your expertise ensures accurate stock reporting and reliable "
+            "supply commitments."
         ),
         tools=[check_inventory_tool],
         llm=OPENAI_MODEL,
@@ -206,10 +206,10 @@ def _build_rfq_crew(
             "data, quantity requirements, and market conditions."
         ),
         backstory=(
-            "You are a senior pricing analyst at Aluminum & Materials Supply Co. "
-            "specialising in B2B pricing across multiple industries.  You consider "
-            "volume discounts, urgency premiums, and competitive positioning to "
-            "generate optimal quotes that win business while protecting margins."
+            "You are a senior pricing analyst at Pirelli Tires specialising in "
+            "B2B tire pricing.  You consider volume discounts, urgency premiums, "
+            "and competitive positioning to generate optimal quotes that win "
+            "business while protecting margins."
         ),
         tools=[calculate_pricing_tool],
         llm=OPENAI_MODEL,
@@ -273,7 +273,7 @@ def _build_counter_crew(
     if not CREWAI_AVAILABLE:
         return None
 
-    part = lookup_part("supplier_d", part_name)
+    part = lookup_part("supplier_f", part_name)
     floor = part.floor_price if part else 0.0
 
     pricing_analyst = Agent(
@@ -283,7 +283,7 @@ def _build_counter_crew(
             "targets.  Accept reasonable offers, or reject those below floor."
         ),
         backstory=(
-            "You are the senior pricing analyst at Aluminum & Materials Supply Co. "
+            "You are the senior pricing analyst at Pirelli Tires.  "
             f"For part '{part_name}', our absolute minimum floor price "
             f"is EUR {floor:.2f}/unit.  You protect margins while maintaining "
             "long-term customer relationships."
@@ -331,7 +331,7 @@ def _build_counter_crew(
 
 def _deterministic_quote(part_name: str, quantity: int) -> dict[str, Any] | None:
     """Generate a quote using rule-based logic."""
-    part = lookup_part("supplier_d", part_name)
+    part = lookup_part("supplier_f", part_name)
     if part is None:
         return None
 
@@ -361,8 +361,8 @@ def _deterministic_counter_eval(
     target_price: float,
 ) -> dict[str, Any]:
     """Evaluate a counter-offer deterministically."""
-    result = evaluate_counter_offer("supplier_d", part_name, target_price)
-    part = lookup_part("supplier_d", part_name)
+    result = evaluate_counter_offer("supplier_f", part_name, target_price)
+    part = lookup_part("supplier_f", part_name)
 
     if result["accepted"]:
         return {
@@ -419,43 +419,22 @@ def _parse_crew_json(raw_output: str) -> dict[str, Any] | None:
 AGENT_FACTS = AgentFacts(
     id=AGENT_ID,
     agent_name=AGENT_NAME,
-    label="Supplier D",
+    label="Supplier F",
     description=(
-        "Multi-industry aluminum supplier powered by CrewAI. "
-        "Serves automotive, beverage, and manufacturing sectors with aluminum "
-        "products including beverage cans, engine blocks, and sheet stock.  "
-        "Two-agent crew: Inventory Checker validates stock, Pricing Analyst "
-        "generates optimal quotes."
+        "Global tire manufacturer powered by CrewAI. Specialises in high-performance "
+        "Pirelli tires including P Zero sports tires, Scorpion SUV tires, and "
+        "Cinturato eco-performance variants.  Two-agent crew: Inventory Checker "
+        "validates stock, Pricing Analyst generates optimal quotes."
     ),
     version="1.0.0",
     framework="crewai",
     jurisdiction="EU",
-    provider="Aluminum & Materials Supply Co.",
+    provider="Pirelli Tires S.p.A.",
     skills=[
         Skill(
-            id="supply:aluminum_cans",
+            id="supply:pirelli_p_zero",
             description=(
-                "Food-grade aluminum beverage cans in 330ml and 500ml sizes"
-            ),
-            input_modes=["application/json"],
-            output_modes=["application/json"],
-            supported_regions=["EU", "US"],
-            max_lead_time_days=5,
-        ),
-        Skill(
-            id="supply:aluminum_engine_block",
-            description=(
-                "A356 aluminum alloy engine block, 6-cylinder, 3.0L displacement"
-            ),
-            input_modes=["application/json"],
-            output_modes=["application/json"],
-            supported_regions=["EU"],
-            max_lead_time_days=35,
-        ),
-        Skill(
-            id="supply:aluminum_sheet_stock",
-            description=(
-                "Raw aluminum sheets in various grades and thicknesses for manufacturing"
+                "P Zero ultra-high performance tires for sports cars and track use"
             ),
             input_modes=["application/json"],
             output_modes=["application/json"],
@@ -463,14 +442,24 @@ AGENT_FACTS = AgentFacts(
             max_lead_time_days=10,
         ),
         Skill(
-            id="supply:aluminum_chassis",
+            id="supply:pirelli_scorpion",
             description=(
-                "Lightweight aluminum space-frame chassis, CNC machined and welded"
+                "Scorpion SUV and crossover tires for all-terrain performance"
+            ),
+            input_modes=["application/json"],
+            output_modes=["application/json"],
+            supported_regions=["EU", "US"],
+            max_lead_time_days=12,
+        ),
+        Skill(
+            id="supply:pirelli_cinturato",
+            description=(
+                "Cinturato eco-performance tires for fuel efficiency and comfort"
             ),
             input_modes=["application/json"],
             output_modes=["application/json"],
             supported_regions=["EU"],
-            max_lead_time_days=25,
+            max_lead_time_days=7,
         ),
     ],
     endpoints=[
@@ -500,31 +489,28 @@ AGENT_FACTS = AgentFacts(
         Evaluation(evaluator="self", score=0.90, metric="reliability"),
         Evaluation(
             evaluator="industry_benchmark",
-            score=0.85,
+            score=0.87,
             metric="delivery_accuracy",
         ),
     ],
     certifications=[
-        Certification(name="ISO 9001", issuer="TÜV SÜD"),
-        Certification(name="IATF 16949", issuer="TÜV SÜD"),
-        Certification(name="FDA", issuer="FDA"),
-        Certification(name="ISO 22000", issuer="TÜV SÜD"),
-        Certification(name="REACH", issuer="ECHA"),
+        Certification(name="ISO 9001", issuer="SGS"),
+        Certification(name="ECE R30", issuer="EU"),
+        Certification(name="EU Tire Label", issuer="EU"),
     ],
     policies=[
         Policy(
             name="min_order_qty",
-            description="Minimum order quantity varies by part",
+            description="Minimum order quantity per part",
             value={
-                "aluminum_cans": 1000,
-                "aluminum_engine_block": 1,
-                "aluminum_sheet_stock": 100,
-                "aluminum_chassis": 1,
+                "pirelli_p_zero": 4,
+                "pirelli_scorpion": 4,
+                "pirelli_cinturato": 4,
             },
         ),
         Policy(
             name="floor_price_policy",
-            description="Minimum 80-85% of base price on negotiations",
+            description="Minimum 82-85% of base price on negotiations",
             value=0.83,
         ),
         Policy(
@@ -605,23 +591,23 @@ async def _emit_startup_event() -> None:
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     """Startup / shutdown lifecycle."""
-    logger.info("Supplier D (CrewAI) starting on port %d …", PORT)
+    logger.info("Supplier F (Pirelli - CrewAI) starting on port %d …", PORT)
     await _register_with_index()
     await _emit_startup_event()
     logger.info(
-        "Supplier D ready at %s  (CrewAI: %s)",
+        "Supplier F ready at %s  (CrewAI: %s)",
         BASE_URL,
         "enabled" if CREWAI_AVAILABLE else "fallback-only",
     )
     yield
-    logger.info("Supplier D shutting down.")
+    logger.info("Supplier F shutting down.")
 
 
 app = FastAPI(
-    title="Supplier D — Aluminum & Materials (CrewAI)",
+    title="Supplier F — Pirelli Tires (CrewAI)",
     description=(
-        "CrewAI-powered aluminum supplier agent serving multiple industries "
-        "with inventory check and pricing analysis."
+        "CrewAI-powered Pirelli tire supplier agent with inventory check "
+        "and pricing analysis."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -682,7 +668,7 @@ async def receive_rfq(envelope: Envelope):
     }
 
     # --- Check catalogue ---
-    part_info = lookup_part("supplier_d", part_name)
+    part_info = lookup_part("supplier_f", part_name)
     if part_info is None:
         logger.info("Part '%s' not in catalogue — rejecting RFQ", part_name)
         reject_env = make_envelope(
@@ -816,7 +802,7 @@ async def receive_counter_offer(envelope: Envelope):
     """Process a counter-offer → return REVISED_QUOTE or REJECT.
 
     The Pricing Analyst evaluates the target price against our floor
-    (80-90% of base depending on part).  Accepts if target ≥ floor; rejects otherwise.
+    (82-85% of base).  Accepts if target ≥ floor; rejects otherwise.
     """
     payload = envelope.payload
     rfq_id = payload.get("rfq_id", "")
@@ -887,7 +873,7 @@ async def receive_counter_offer(envelope: Envelope):
 
     # --- Build response envelope ---
     if decision.get("decision") == "accept":
-        part_info = lookup_part("supplier_d", part_name)
+        part_info = lookup_part("supplier_f", part_name)
         revised_payload = RevisedQuotePayload(
             rfq_id=rfq_id,
             revised_price=float(
@@ -989,11 +975,11 @@ async def health():
     """Liveness / readiness probe."""
     return {
         "status": "ok",
-        "service": "supplier-d",
+        "service": "supplier-f",
         "framework": "crewai",
         "agent_id": AGENT_ID,
         "crewai_available": CREWAI_AVAILABLE,
-        "catalog_parts": list(SUPPLIER_D_CATALOG.keys()),
+        "catalog_parts": list(SUPPLIER_F_CATALOG.keys()),
         "active_rfqs": len(_rfq_store),
         "confirmed_orders": len(_order_store),
     }
@@ -1005,7 +991,7 @@ async def health():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "supplier_aluminum:app",
+        "supplier_pirelli:app",
         host=HOST,
         port=PORT,
         reload=False,

@@ -64,8 +64,14 @@ const PHASE_TRIGGERS: Record<string, { phase: string; action: "start" | "complet
   ORDER_PLACED: { phase: "negotiation", action: "complete" },
   LOGISTICS_REQUESTED: { phase: "logistics", action: "start" },
   SHIP_PLAN_RECEIVED: { phase: "logistics", action: "complete" },
-  CASCADE_COMPLETE: { phase: "plan", action: "complete" },
+  CASCADE_COMPLETE: { phase: "intent", action: "complete" },
 };
+
+// Handle CASCADE_COMPLETE event specially to mark both "intent" and "plan" as complete
+const CASCADE_COMPLETE_TRIGGERS = [
+  { phase: "intent", action: "complete" as const },
+  { phase: "plan", action: "complete" as const },
+];
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
@@ -174,8 +180,8 @@ export function useDashboardState(events: AgentEvent[], runId: string | null = n
       });
 
       /* ── Timeline phases ── */
-      const trigger = PHASE_TRIGGERS[event_type];
-      if (trigger) {
+      const triggers = event_type === "CASCADE_COMPLETE" ? CASCADE_COMPLETE_TRIGGERS : (PHASE_TRIGGERS[event_type] ? [PHASE_TRIGGERS[event_type]] : []);
+      for (const trigger of triggers) {
         if (!phaseState[trigger.phase]) {
           phaseState[trigger.phase] = { started: false, completed: false };
         }
