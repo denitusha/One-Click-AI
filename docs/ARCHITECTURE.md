@@ -74,6 +74,8 @@ graph TB
 | **Supplier H** | 6009 | Custom Python | Carbon ceramic brakes, brake calipers | `GET /health` |
 | **Dashboard** | 5173 | React 19 + Vite | Real-time visualization, graph navigation, execution reports | N/A (client-side) |
 
+**Note:** There are 7 supplier agents (A, B, C, D, F, G, H — supplier E is not implemented).
+
 ### Startup Order
 
 Services must start in this order to satisfy dependencies:
@@ -1070,7 +1072,7 @@ sequenceDiagram
 - Verification per supplier: ~50ms (HTTP GET)
 - Negotiation per part: ~500ms (RFQ → Quote → Counter → Order)
 - Logistics per order: ~200ms (Dijkstra + carrier selection)
-- **Total cascade: 15-30 seconds** for 8 parts, 8 suppliers, 8 orders
+- **Total cascade: 15-30 seconds** for 8 parts, 7 suppliers, 8 orders
 
 ---
 

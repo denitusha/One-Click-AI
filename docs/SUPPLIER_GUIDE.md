@@ -56,6 +56,8 @@ Existing suppliers for reference:
 | Supplier H | Custom | 6009 | `supplier_brakes.py` | Carbon ceramic brakes, brake calipers | `supplier_h` |
 | Logistics | AutoGen | 6004 | `logistics/agent.py` | Road freight, express delivery | N/A |
 
+**Note:** There are 7 supplier agents total. Supplier E is not implemented (letters skip E intentionally).
+
 ---
 
 ## Step-by-Step Guide

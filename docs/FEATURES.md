@@ -299,7 +299,7 @@ async def _register_with_index() -> None:
         resp.raise_for_status()
 ```
 
-**All 8 suppliers + logistics + procurement** implement this pattern identically.
+**All 7 suppliers + logistics + procurement** implement this pattern identically.
 
 ### Performance
 
@@ -322,12 +322,14 @@ async def _register_with_index() -> None:
 
 ### Overview
 
-OneClickAI proves true multi-framework interoperability with **4 different AI frameworks**:
+OneClickAI proves true multi-framework interoperability with **4 different AI frameworks** across 9 autonomous agents:
 - **LangGraph** — Procurement orchestrator (5-node state machine)
 - **CrewAI** — Suppliers A, D, F (multi-agent crews)
 - **LangChain** — Suppliers C, G (ReAct agents with tools)
 - **AutoGen** — Logistics agent (ConversableAgent + Dijkstra)
 - **Custom Python** — Suppliers B, H (rule-based logic)
+
+**Total: 7 suppliers + 1 procurement + 1 logistics = 9 agents**
 
 ### Framework Proof
 
@@ -794,7 +796,7 @@ The LangGraph procurement agent doesn't know (or care) that Supplier A uses Crew
 **Typical cascade timeline (8 parts):**
 1. DECOMPOSE: ~3s (OpenAI GPT-4o call)
 2. DISCOVER: ~800ms (8 parallel semantic searches @ 100ms each)
-3. VERIFY: ~400ms (8 suppliers @ 50ms each)
+3. VERIFY: ~400ms (7 suppliers @ 50ms each, verified per part)
 4. NEGOTIATE: ~4s (8 parts, RFQ+QUOTE+COUNTER+ORDER per part)
 5. PLAN: ~1.6s (8 logistics requests @ 200ms each)
 
@@ -962,7 +964,7 @@ timeline
         BOM Generated : LLM decomposes into 8 parts
     section Phase 2
         Discovery Started : Semantic search begins
-        Suppliers Discovered : 8 suppliers found
+        Suppliers Discovered : 7 suppliers found
         Discovery Complete : All parts have candidates
     section Phase 3
         Verification Started : Fetch AgentFacts
@@ -1250,13 +1252,13 @@ if (event.event_type === "ORDER_PLACED") {
 
 ### End-to-End Performance
 
-**Typical cascade (8 parts, 8 suppliers, 8 orders):**
+**Typical cascade (8 parts, 7 suppliers, 8 orders):**
 
 | Phase | Operations | Avg Time | Bottleneck |
 |-------|-----------|----------|------------|
 | DECOMPOSE | 1 OpenAI call | 3.0s | LLM inference |
 | DISCOVER | 8 semantic searches | 0.8s | Embedding computation |
-| VERIFY | 8 AgentFacts fetches | 0.4s | HTTP round-trips |
+| VERIFY | 7 unique suppliers fetches | 0.35s | HTTP round-trips |
 | NEGOTIATE | 8 RFQ/QUOTE/ORDER cycles | 4.0s | Multi-round negotiation |
 | PLAN | 8 logistics requests | 1.6s | Dijkstra + LLM |
 | **Total** | **Full cascade** | **10-15s** | — |
@@ -1293,6 +1295,7 @@ if (event.event_type === "ORDER_PLACED") {
 - **Skills:** ~500 skills (embedding lookup remains fast)
 - **Events:** ~10,000 events per cascade (memory: ~50 MB)
 - **Concurrent runs:** ~10 runs (MongoDB recommended for more)
+- **Current deployment:** 9 agents (7 suppliers + 1 procurement + 1 logistics)
 
 **Bottlenecks:**
 - Semantic search scales O(n) with skill count (linear scan of embeddings)
@@ -1312,7 +1315,7 @@ if (event.event_type === "ORDER_PLACED") {
 All three hero features are fully implemented with production-quality code:
 
 1. **Discovery & Identity** (9.5/10) — Semantic matching, ZTAA verification, two-tier metadata
-2. **Coordination Cascade** (9.8/10) — 4 frameworks, 10 message types, 5-phase state machine
+2. **Coordination Cascade** (9.8/10) — 4 frameworks, 10 message types, 5-phase state machine, 9 agents
 3. **Visualization** (9.3/10) — Interactive graph, analytics, real-time updates, PDF export
 
-Stretch goals are partially implemented with strong foundation for future enhancements. The system demonstrates core NANDA primitives for decentralized agent coordination at scale.
+Stretch goals are partially implemented with strong foundation for future enhancements. The system demonstrates core NANDA primitives for decentralized agent coordination at scale with 7 supplier agents, 1 procurement orchestrator, and 1 logistics planner.

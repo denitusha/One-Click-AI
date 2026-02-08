@@ -1,6 +1,6 @@
 # OneClickAI — Supply Chain Agents
 
-Multi-agent supply-chain coordination network built on a NANDA-inspired architecture. Ten autonomous agents (8 suppliers + procurement orchestrator + logistics planner) discover each other via a semantic registry, negotiate procurement deals through structured A2A messaging, and coordinate logistics — all visualized in real-time through a React dashboard.
+Multi-agent supply-chain coordination network built on a NANDA-inspired architecture. Nine autonomous agents (7 suppliers + procurement orchestrator + logistics planner) discover each other via a semantic registry, negotiate procurement deals through structured A2A messaging, and coordinate logistics — all visualized in real-time through a React dashboard.
 
 ## Architecture
 
@@ -163,7 +163,7 @@ chmod +x start_all.sh
 ./start_all.sh
 ```
 
-This starts all 11 backend services + the React dashboard. Services:
+This starts all 10 backend services + the React dashboard. Services:
 
 | Service | URL | Framework |
 |---------|-----|-----------|
