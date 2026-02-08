@@ -22,6 +22,8 @@ interface UseWebSocketReturn {
   fetchHistory: () => Promise<void>;
   /** Clear all events and re-fetch from server, resetting to initial state. */
   reset: () => Promise<void>;
+  /** Clear all events from memory (no fetch). */
+  clearEvents: () => void;
 }
 
 /**
@@ -222,6 +224,11 @@ export function useWebSocket(): UseWebSocketReturn {
     }
   }, []);
 
+  // ── Clear events: clear all events from memory without fetching ──
+  const clearEvents = useCallback(() => {
+    setEvents([]);
+  }, []);
+
   // ── Single effect with empty deps — Strict Mode safe ──
   useEffect(() => {
     mountedRef.current = true;
@@ -235,5 +242,5 @@ export function useWebSocket(): UseWebSocketReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { events, connected, stopped, reconnect, disconnect, fetchHistory, reset };
+  return { events, connected, stopped, reconnect, disconnect, fetchHistory, reset, clearEvents };
 }
