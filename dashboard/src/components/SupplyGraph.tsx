@@ -131,8 +131,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         width: isOverview ? 55 : 50,
         height: isOverview ? 55 : 50,
         "background-image": NODE_ICONS.procurement,
+        "background-fit": "contain" as any,
         "background-width": "75%",
         "background-height": "75%",
+        "background-clip": "none" as any,
+        "background-image-smoothing": "yes" as any,
       },
     },
     {
@@ -144,8 +147,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         width: isOverview ? 50 : 45,
         height: isOverview ? 50 : 45,
         "background-image": NODE_ICONS.supplier,
+        "background-fit": "contain" as any,
         "background-width": "75%",
         "background-height": "75%",
+        "background-clip": "none" as any,
+        "background-image-smoothing": "yes" as any,
       },
     },
     {
@@ -157,8 +163,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         width: isOverview ? 50 : 45,
         height: isOverview ? 50 : 45,
         "background-image": NODE_ICONS.logistics,
+        "background-fit": "contain" as any,
         "background-width": "75%",
         "background-height": "75%",
+        "background-clip": "none" as any,
+        "background-image-smoothing": "yes" as any,
       },
     },
     {
@@ -170,8 +179,11 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         width: isOverview ? 50 : 45,
         height: isOverview ? 50 : 45,
         "background-image": NODE_ICONS.index,
+        "background-fit": "contain" as any,
         "background-width": "75%",
         "background-height": "75%",
+        "background-clip": "none" as any,
+        "background-image-smoothing": "yes" as any,
       },
     },
     // Hub nodes (logistics routing cities)
@@ -958,8 +970,49 @@ export default function SupplyGraph({
       });
     }
 
-    // Fit after layout
-    setTimeout(() => cy.fit(undefined, 40), 600);
+    // ── Fit after layout — start a bit more zoomed out ──
+    setTimeout(() => {
+      cy.fit(undefined, 80);
+
+      // ── Dynamic node scaling on zoom (semantic zoom) ──
+      // Keeps nodes at a readable screen size regardless of zoom level.
+      const initialZoom = cy.zoom();
+      const roleBaseSizes: Record<string, number> = {
+        procurement: isOverview ? 55 : 50,
+        supplier: isOverview ? 50 : 45,
+        logistics: isOverview ? 50 : 45,
+        index: isOverview ? 50 : 45,
+      };
+      const defaultBase = isOverview ? 50 : isLogistics ? 45 : 50;
+
+      let rafPending = false;
+      cy.on("zoom", () => {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          const zoom = cy.zoom();
+          // Ratio > 1 when zoomed in past initial, < 1 when zoomed out
+          const ratio = initialZoom / zoom;
+          // Gentle scaling: nodes shrink slightly when zoomed in, grow when zoomed out
+          const scale = Math.max(0.5, Math.min(2.0, Math.pow(ratio, 0.35)));
+
+          cy.batch(() => {
+            cy.nodes().forEach((node: any) => {
+              const role = node.data("role");
+              if (role === "hub" || role === "step") return;
+              const isHighlighted = node.hasClass("highlighted");
+              const base = roleBaseSizes[role] ?? defaultBase;
+              const sz = Math.round(base * scale);
+              node.style({
+                width: isHighlighted ? sz + 10 : sz,
+                height: isHighlighted ? sz + 10 : sz,
+              });
+            });
+          });
+        });
+      });
+    }, 600);
 
     return () => {
       // Don't destroy on cleanup -- we manage lifecycle via elementKey
