@@ -1,4 +1,5 @@
 import { useCallback, useState, useMemo, useEffect, useRef } from "react";
+import { ReactFlowProvider } from "@xyflow/react";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useDashboardState, filterDetailEdges } from "./hooks/useDashboardState";
 import SupplyGraph from "./components/SupplyGraph";
@@ -145,7 +146,8 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen flex-col bg-[#0f172a]">
+    <ReactFlowProvider>
+      <div className="flex h-screen flex-col bg-[#0f172a]">
       {/* ── Header ─────────────────────────────────────────── */}
       <header className="flex shrink-0 items-center justify-between border-b border-slate-700/60 bg-slate-900/70 px-5 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-3">
@@ -390,6 +392,7 @@ export default function App() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ReactFlowProvider>
   );
 }

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
 
 /* ── Custom variables ──────────────────────────────────────── */
 :root {
@@ -40,10 +41,157 @@ body {
   background: var(--color-text-muted);
 }
 
-/* ── Cytoscape container ──────────────────────────────────── */
-.cytoscape-container {
-  width: 100%;
-  height: 100%;
+/* ── React Flow container ──────────────────────────────────── */
+.react-flow {
+  background: var(--color-bg);
+  border-radius: 0;
+}
+
+.react-flow__node {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease-in-out;
+}
+
+.react-flow__node:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.react-flow__edge {
+  transition: stroke 0.2s ease-in-out, stroke-width 0.2s ease-in-out;
+}
+
+.react-flow__edge-label {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid #334155;
+}
+
+.react-flow__handle {
+  background: #818cf8;
+  border: 2px solid #1a2332;
+}
+
+.react-flow__handle.connectingFrom {
+  background: #4ade80;
+}
+
+.react-flow__handle.connectionindicator {
+  background: #38bdf8;
+}
+
+/* ── Controls styling ──────────────────────────────────────── */
+.react-flow__controls {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.react-flow__controls-button {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 4px;
+}
+
+.react-flow__controls-button:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+/* ── MiniMap styling ────────────────────────────────────────── */
+.react-flow__minimap {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 8px;
+}
+
+.react-flow__minimap-canvas {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+/* ── Node styling for analytics overlays ──────────────────── */
+.react-flow__node.risk-high {
+  background-color: #4ade80;
+  border-color: #16a34a;
+}
+
+.react-flow__node.risk-med {
+  background-color: #fbbf24;
+  border-color: #d97706;
+}
+
+.react-flow__node.risk-low {
+  background-color: #f87171;
+  border-color: #dc2626;
+}
+
+.react-flow__node.risk-unknown {
+  background-color: #475569;
+  border-color: #334155;
+  opacity: 0.5;
+}
+
+.react-flow__node.bottleneck-critical {
+  border-width: 6px;
+  border-color: #ef4444;
+  opacity: 1;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.5);
+}
+
+.react-flow__node.bottleneck-high {
+  border-width: 4px;
+  border-color: #fb923c;
+  opacity: 1;
+}
+
+.react-flow__node.bottleneck-normal {
+  opacity: 0.5;
+}
+
+.react-flow__node.hovered {
+  border-width: 4px;
+  border-color: #f1f5f9;
+  box-shadow: 0 0 12px rgba(241, 245, 249, 0.3);
+}
+
+.react-flow__node.highlighted {
+  border-width: 4px;
+  border-color: #f1f5f9;
+  box-shadow: 0 0 16px rgba(241, 245, 249, 0.4);
+}
+
+.react-flow__node.dimmed {
+  opacity: 0.3;
+}
+
+/* ── Edge styling for analytics overlays ──────────────────── */
+.react-flow__edge.cost-high {
+  stroke: #ef4444;
+  stroke-width: 6px;
+}
+
+.react-flow__edge.cost-med {
+  stroke: #fbbf24;
+  stroke-width: 4px;
+}
+
+.react-flow__edge.cost-low {
+  stroke: #4ade80;
+  stroke-width: 2px;
+}
+
+.react-flow__edge.hovered-edge {
+  opacity: 1;
+  stroke-width: 4px;
+}
+
+.react-flow__edge.dimmed {
+  opacity: 0.15;
 }
 
 /* ── Pulse animation for live indicator ──────────────────── */
