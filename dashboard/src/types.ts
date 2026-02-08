@@ -8,6 +8,7 @@ export interface AgentEvent {
   agent_id: string;
   timestamp: string;
   data: Record<string, unknown>;
+  run_id?: string;
 }
 
 /** History payload sent on WS connect. */

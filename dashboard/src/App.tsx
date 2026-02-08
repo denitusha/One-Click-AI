@@ -17,6 +17,10 @@ const PROCUREMENT_URL = "http://localhost:6010";
 
 export default function App() {
   const { events, connected, stopped, reconnect, disconnect, fetchHistory } = useWebSocket();
+  const [submitting, setSubmitting] = useState(false);
+  const [runId, setRunId] = useState<string | null>(
+    () => sessionStorage.getItem("runId")  // restore on refresh
+  );
   const {
     nodes,
     edges,
@@ -28,9 +32,7 @@ export default function App() {
     orders,
     shipPlans,
     negotiations,
-  } = useDashboardState(events);
-
-  const [submitting, setSubmitting] = useState(false);
+  } = useDashboardState(events, runId);
   const [graphSelection, setGraphSelection] = useState<GraphSelection>({ mode: "overview" });
   const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>("none");
   const [activeTab, setActiveTab] = useState<SidebarTab>("messages");
@@ -86,17 +88,25 @@ export default function App() {
 
   const handleIntent = useCallback(async (intent: string) => {
     setSubmitting(true);
+    const newRunId = crypto.randomUUID();
+    setRunId(newRunId);
+    sessionStorage.setItem("runId", newRunId);
     try {
       await fetch(`${PROCUREMENT_URL}/intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent }),
+        body: JSON.stringify({ intent, run_id: newRunId }),
       });
     } catch (err) {
       console.error("Failed to submit intent:", err);
     } finally {
       setSubmitting(false);
     }
+  }, []);
+
+  const handleReset = useCallback(() => {
+    sessionStorage.removeItem("runId");
+    setRunId(null);
   }, []);
 
   // ── Graph drill-down callbacks ──
@@ -163,36 +173,29 @@ export default function App() {
         </div>
         <StatusBar
           connected={connected}
-          eventCount={events.length}
+          eventCount={messages.length}
           nodeCount={nodes.length}
           edgeCount={edges.length}
           onReconnect={reconnect}
         />
-        {/* Data status indicator */}
         {stopped && (
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[0.65rem] font-medium text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Data frozen ({events.length} events)
-            </span>
-            <button
-              onClick={fetchHistory}
-              className="rounded-md bg-slate-700/50 px-2 py-1 text-[0.6rem] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-slate-200"
-              title="Reload events from server"
-            >
-              Reload
-            </button>
-          </div>
+          <button
+            onClick={handleReset}
+            className="rounded-md bg-slate-700/50 px-2 py-1 text-[0.6rem] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-slate-200"
+            title="Reset to start a new run"
+          >
+            Reset
+          </button>
         )}
         {!connected && !stopped && events.length === 0 && (
           <button
-            onClick={fetchHistory}
+            onClick={handleReset}
             className="flex items-center gap-1.5 rounded-md bg-sky-600/20 px-2.5 py-1 text-[0.65rem] font-medium text-sky-400 transition-colors hover:bg-sky-600/30"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Load from server
+            Reset
           </button>
         )}
       </header>
