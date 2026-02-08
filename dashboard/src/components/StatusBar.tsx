@@ -3,7 +3,6 @@ interface StatusBarProps {
   eventCount: number;
   nodeCount: number;
   edgeCount: number;
-  onReconnect: () => void;
 }
 
 /** Top-right status indicator showing connection state and counters. */
@@ -12,15 +11,13 @@ export default function StatusBar({
   eventCount,
   nodeCount,
   edgeCount,
-  onReconnect,
 }: StatusBarProps) {
   return (
     <div className="flex items-center gap-4 text-xs">
       {/* Connection status */}
-      <button
-        onClick={onReconnect}
-        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors hover:bg-slate-700"
-        title={connected ? "Connected to Event Bus" : "Click to reconnect"}
+      <div
+        className="flex items-center gap-1.5 rounded-full px-2.5 py-1"
+        title={connected ? "Connected to Event Bus" : "Disconnected from Event Bus"}
       >
         <span className="relative flex h-2 w-2">
           <span
@@ -33,7 +30,7 @@ export default function StatusBar({
         <span className={connected ? "text-emerald-400" : "text-red-400"}>
           {connected ? "Live" : "Disconnected"}
         </span>
-      </button>
+      </div>
 
       {/* Counters */}
       <div className="flex items-center gap-3 text-slate-400">
