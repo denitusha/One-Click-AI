@@ -83,6 +83,7 @@ class ProcurementState(TypedDict, total=False):
 
     # Input
     intent: str
+    run_id: str  # dashboard-generated UUID for tab isolation
 
     # Phase: DECOMPOSE
     bom: dict[str, Any]  # serialised BOM
@@ -121,13 +122,17 @@ async def _emit_event(
     event_type: str,
     data: dict[str, Any] | None = None,
     agent_id: str = AGENT_ID,
+    run_id: str = "",
 ) -> dict[str, Any]:
     """POST an event to the Event Bus (best-effort, non-blocking)."""
+    payload = data or {}
+    if run_id:
+        payload["run_id"] = run_id
     event = {
         "event_type": event_type,
         "agent_id": agent_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "data": data or {},
+        "data": payload,
     }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -144,9 +149,10 @@ async def _emit_event(
 async def decompose_node(state: ProcurementState) -> dict[str, Any]:
     """Decompose the user intent into a Bill of Materials."""
     intent = state["intent"]
+    rid = state.get("run_id", "")
     logger.info("▶ DECOMPOSE  intent=%s", intent)
 
-    ev = await _emit_event("INTENT_RECEIVED", {"intent": intent})
+    ev = await _emit_event("INTENT_RECEIVED", {"intent": intent}, run_id=rid)
 
     bom: BOM = await decompose_bom(intent, model=OPENAI_MODEL)
     bom_dict = bom.model_dump(mode="json")
@@ -158,6 +164,7 @@ async def decompose_node(state: ProcurementState) -> dict[str, Any]:
             "systems": bom.systems,
             "parts": [p.part_id for p in bom.parts],
         },
+        run_id=rid,
     )
 
     return {
@@ -175,6 +182,7 @@ async def decompose_node(state: ProcurementState) -> dict[str, Any]:
 async def discover_node(state: ProcurementState) -> dict[str, Any]:
     """Query the NANDA Index for suppliers matching each BOM part skill."""
     logger.info("▶ DISCOVER")
+    rid = state.get("run_id", "")
     bom_dict = state["bom"]
     parts: list[dict[str, Any]] = bom_dict.get("parts", [])
 
@@ -191,6 +199,7 @@ async def discover_node(state: ProcurementState) -> dict[str, Any]:
             ev = await _emit_event(
                 "DISCOVERY_QUERY",
                 {"part": part.get("part_id"), "skill": skill, "keyword": keyword},
+                run_id=rid,
             )
             events.append(ev)
 
@@ -218,6 +227,7 @@ async def discover_node(state: ProcurementState) -> dict[str, Any]:
                             for r in results
                         ],
                     },
+                    run_id=rid,
                 )
                 events.append(ev2)
                 logger.info(
@@ -253,6 +263,7 @@ REQUIRED_JURISDICTION = {"EU", "US", "UK", "CH"}
 async def verify_node(state: ProcurementState) -> dict[str, Any]:
     """Fetch AgentFacts from each discovered supplier and run ZTAA verification."""
     logger.info("▶ VERIFY (ZTAA)")
+    rid = state.get("run_id", "")
     discovered = state.get("discovered_suppliers", {})
     seen_ids: set[str] = set()
     verified: dict[str, dict[str, Any]] = {}
@@ -291,6 +302,7 @@ async def verify_node(state: ProcurementState) -> dict[str, Any]:
                         "supplier_id": sid,
                         "agent_name": facts_dict.get("agent_name", sid),
                     },
+                    run_id=rid,
                 )
                 events.append(ev)
             except Exception as exc:
@@ -339,6 +351,7 @@ async def verify_node(state: ProcurementState) -> dict[str, Any]:
                         "passed": False,
                         "reasons": rejection_reasons,
                     },
+                    run_id=rid,
                 )
                 events.append(ev)
                 logger.info("  ✗ %s REJECTED: %s", sid, rejection_reasons)
@@ -355,6 +368,7 @@ async def verify_node(state: ProcurementState) -> dict[str, Any]:
                         "reliability": rel,
                         "esg": esg,
                     },
+                    run_id=rid,
                 )
                 events.append(ev)
                 logger.info("  ✓ %s VERIFIED (rel=%.2f, esg=%s)", sid, rel, esg)
@@ -380,6 +394,7 @@ async def verify_node(state: ProcurementState) -> dict[str, Any]:
 async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
     """Run the full negotiation cascade for every BOM part."""
     logger.info("▶ NEGOTIATE")
+    rid = state.get("run_id", "")
     bom_dict = state["bom"]
     parts: list[dict[str, Any]] = bom_dict.get("parts", [])
     discovered = state.get("discovered_suppliers", {})
@@ -456,6 +471,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
                         "supplier_name": facts.get("agent_name", sid),
                         "quantity": quantity,
                     },
+                    run_id=rid,
                 )
                 events.append(ev)
 
@@ -484,6 +500,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
                                 "to_agent": sid,
                                 "reason": reason,
                             },
+                            run_id=rid,
                         )
                         continue  # skip to next supplier
 
@@ -520,6 +537,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
                             "lead_time_days": quote.lead_time_days,
                             "framework": quote.framework,
                         },
+                        run_id=rid,
                     )
                     events.append(ev2)
                     logger.info(
@@ -588,6 +606,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
                             "supplier_name": top.supplier_name,
                             "target_price": counter_data["target_price"],
                         },
+                        run_id=rid,
                     )
                     events.append(ev3)
 
@@ -645,6 +664,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
                                     "supplier_name": top.supplier_name,
                                     "revised_price": revised_price,
                                 },
+                                run_id=rid,
                             )
                             events.append(ev4)
                             logger.info(
@@ -683,6 +703,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
                             "price": winner.unit_price,
                             "order_id": order_id,
                         },
+                        run_id=rid,
                     )
                     events.append(ev5)
 
@@ -744,6 +765,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
                                     "currency": winner.currency,
                                     "lead_time_days": winner.lead_time_days,
                                 },
+                                run_id=rid,
                             )
                             events.append(ev6)
                         except Exception as exc:
@@ -789,6 +811,7 @@ async def negotiate_node(state: ProcurementState) -> dict[str, Any]:
 async def plan_node(state: ProcurementState) -> dict[str, Any]:
     """Request logistics plans and generate the final Network Coordination Report."""
     logger.info("▶ PLAN")
+    rid = state.get("run_id", "")
     orders = state.get("orders", [])
     discovered = state.get("discovered_suppliers", {})
     verified = state.get("verified_suppliers", {})
@@ -834,6 +857,7 @@ async def plan_node(state: ProcurementState) -> dict[str, Any]:
                     "delivery": log_req.delivery_location,
                     "cargo": log_req.cargo_description,
                 },
+                run_id=rid,
             )
             events.append(ev)
 
@@ -876,6 +900,7 @@ async def plan_node(state: ProcurementState) -> dict[str, Any]:
                             "delivery": order.get("delivery_location", "Stuttgart, Germany"),
                             "from_agent": logi_id,
                         },
+                        run_id=rid,
                     )
                     events.append(ev2)
                     plan_received = True
@@ -924,6 +949,7 @@ async def plan_node(state: ProcurementState) -> dict[str, Any]:
                 "suppliers_engaged", 0
             ),
         },
+        run_id=rid,
     )
     events.append(ev_final)
 

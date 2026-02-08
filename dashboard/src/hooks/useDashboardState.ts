@@ -118,8 +118,18 @@ function summariseEvent(evt: AgentEvent): string {
 
 /* ── Main derivation hook ────────────────────────────────── */
 
-export function useDashboardState(events: AgentEvent[]) {
+export function useDashboardState(events: AgentEvent[], runId: string | null = null) {
   return useMemo(() => {
+    // Pre-filter: AGENT_REGISTERED always passes through (agent metadata).
+    // When runId is set, only show events matching that run.
+    // When runId is null (no intent submitted yet), block all run-specific events.
+    const filtered = events.filter((evt) => {
+      if (evt.event_type === "AGENT_REGISTERED") return true;
+      if (!runId) return false; // no run selected → show nothing run-specific
+      const evtRunId = evt.run_id || (evt.data.run_id as string | undefined);
+      return evtRunId === runId;
+    });
+
     let edgeCounter = 0;           // reset every recomputation — stable edge IDs
     const nodesMap = new Map<string, GraphNode>();
     const edges: GraphEdge[] = [];
@@ -141,7 +151,7 @@ export function useDashboardState(events: AgentEvent[]) {
     const shipPlans: ShipPlanDetail[] = [];
     const negotiationMap = new Map<string, NegotiationRound>(); // keyed by "part:supplier"
 
-    for (const evt of events) {
+    for (const evt of filtered) {
       const { event_type, agent_id, data } = evt;
 
       /* ── Build message log ── */
@@ -602,7 +612,7 @@ export function useDashboardState(events: AgentEvent[]) {
       shipPlans,                               // always available (real-time)
       negotiations: [...negotiationMap.values()], // always available (real-time)
     };
-  }, [events]);
+  }, [events, runId]);
 }
 
 /* ── Detail edge filter (called outside the memo, pure function) ── */

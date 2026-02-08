@@ -155,11 +155,13 @@ _running = False
 class IntentRequest(BaseModel):
     """Body for ``POST /intent``."""
     intent: str = Field(..., description="Natural-language procurement intent")
+    run_id: str = Field(default="", description="Dashboard-generated UUID for tab isolation")
 
 
 class IntentResponse(BaseModel):
     status: str = "accepted"
     message: str = ""
+    run_id: str = ""
     report: dict[str, Any] | None = None
 
 
@@ -264,6 +266,7 @@ async def submit_intent(body: IntentRequest):
         # Run the LangGraph procurement graph
         initial_state: ProcurementState = {
             "intent": body.intent,
+            "run_id": body.run_id,
             "events": [],
             "errors": [],
         }
@@ -275,6 +278,7 @@ async def submit_intent(body: IntentRequest):
         return IntentResponse(
             status="completed",
             message="Procurement cascade completed successfully.",
+            run_id=body.run_id,
             report=report,
         )
     except Exception as exc:
