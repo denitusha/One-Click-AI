@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 from openai import AsyncOpenAI
@@ -164,6 +165,12 @@ async def decompose_bom_llm(intent: str, model: str = "gpt-4o") -> list[dict[str
 
     Falls back to the automotive template if the LLM call fails.
     """
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY not set — skipping LLM, using template fallback.")
+        return AUTOMOTIVE_TEMPLATE
+
+    logger.info("Calling OpenAI (%s) to decompose BOM for: %s", model, intent[:80])
     try:
         client = AsyncOpenAI()
         response = await client.chat.completions.create(
@@ -186,8 +193,10 @@ async def decompose_bom_llm(intent: str, model: str = "gpt-4o") -> list[dict[str
 
         parts = json.loads(raw)
         if isinstance(parts, list) and len(parts) > 0:
-            logger.info("LLM generated %d BOM parts", len(parts))
+            logger.info("LLM successfully generated %d BOM parts (dynamic decomposition)", len(parts))
             return parts
+        else:
+            logger.warning("LLM returned empty or invalid parts list, using template fallback.")
     except Exception as exc:
         logger.warning("LLM BOM decomposition failed (%s), using template fallback.", exc)
 
