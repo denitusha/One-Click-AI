@@ -119,7 +119,8 @@ function summariseEvent(evt: AgentEvent): string {
 /* ── Main derivation hook ────────────────────────────────── */
 
 export function useDashboardState(events: AgentEvent[]) {
-  return useMemo(() => {
+  // First pass: compute all derived state from events
+  const derivedState = useMemo(() => {
     let edgeCounter = 0;           // reset every recomputation — stable edge IDs
     const nodesMap = new Map<string, GraphNode>();
     const edges: GraphEdge[] = [];
@@ -553,22 +554,6 @@ export function useDashboardState(events: AgentEvent[]) {
       };
     });
 
-    const executionPlan: ExecutionPlan | null = cascadeComplete
-      ? {
-          totalCost,
-          currency: "EUR",
-          partsCount: partsSet.size,
-          suppliersEngaged: suppliersEngaged.size,
-          ordersPlaced,
-          shippingPlans,
-          estimatedDelivery: lastDelivery,
-          orders,
-          shipPlans,
-          negotiations: [...negotiationMap.values()],
-          report: cascadeReport,
-        }
-      : null;
-
     /* ── Compute overview (aggregated) edges ── */
     const aggMap = new Map<string, AggregatedEdge>();
     for (const e of edges) {
@@ -595,14 +580,65 @@ export function useDashboardState(events: AgentEvent[]) {
       edges,
       messages,
       timeline,
-      executionPlan,
       cascadeComplete,
       overviewEdges,
-      orders,                                  // always available (real-time)
-      shipPlans,                               // always available (real-time)
-      negotiations: [...negotiationMap.values()], // always available (real-time)
+      totalCost,
+      ordersPlaced,
+      shippingPlans,
+      partsSetSize: partsSet.size,
+      suppliersEngagedSize: suppliersEngaged.size,
+      orders,
+      shipPlans,
+      negotiations: [...negotiationMap.values()],
+      cascadeReport,
+      lastDelivery,
     };
   }, [events]);
+
+  // Second pass: memoize executionPlan separately with stable reference
+  // Only depends on the actual plan data, not the entire events array
+  const executionPlan = useMemo(() => {
+    if (!derivedState.cascadeComplete) return null;
+    
+    return {
+      totalCost: derivedState.totalCost,
+      currency: "EUR",
+      partsCount: derivedState.partsSetSize,
+      suppliersEngaged: derivedState.suppliersEngagedSize,
+      ordersPlaced: derivedState.ordersPlaced,
+      shippingPlans: derivedState.shippingPlans,
+      estimatedDelivery: derivedState.lastDelivery,
+      orders: derivedState.orders,
+      shipPlans: derivedState.shipPlans,
+      negotiations: derivedState.negotiations,
+      report: derivedState.cascadeReport,
+    };
+  }, [
+    derivedState.cascadeComplete,
+    derivedState.totalCost,
+    derivedState.ordersPlaced,
+    derivedState.shippingPlans,
+    derivedState.partsSetSize,
+    derivedState.suppliersEngagedSize,
+    derivedState.lastDelivery,
+    derivedState.orders,
+    derivedState.shipPlans,
+    derivedState.negotiations,
+    derivedState.cascadeReport,
+  ]);
+
+  return {
+    nodes: derivedState.nodes,
+    edges: derivedState.edges,
+    messages: derivedState.messages,
+    timeline: derivedState.timeline,
+    executionPlan,
+    cascadeComplete: derivedState.cascadeComplete,
+    overviewEdges: derivedState.overviewEdges,
+    orders: derivedState.orders,
+    shipPlans: derivedState.shipPlans,
+    negotiations: derivedState.negotiations,
+  };
 }
 
 /* ── Detail edge filter (called outside the memo, pure function) ── */

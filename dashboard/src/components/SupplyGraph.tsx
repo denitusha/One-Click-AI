@@ -648,6 +648,59 @@ interface SupplyGraphProps {
   onBack: () => void;
 }
 
+/* ── Layout options helper (shared by fresh build & incremental updates) ── */
+function getLayoutOpts(isOverview: boolean, isLogistics: boolean, isOrder: boolean): any {
+  if (isOverview) {
+    return {
+      name: "concentric",
+      concentric: (node: any) => {
+        const role = node.data("role");
+        if (role === "procurement") return 10;
+        if (role === "index") return 5;
+        return 1;
+      },
+      levelWidth: () => 1,
+      animate: true,
+      animationDuration: 500,
+      padding: 50,
+      minNodeSpacing: 60,
+    };
+  } else if (isLogistics) {
+    return {
+      name: "breadthfirst",
+      directed: true,
+      animate: true,
+      animationDuration: 500,
+      padding: 50,
+      spacingFactor: 1.5,
+      avoidOverlap: true,
+    };
+  } else if (isOrder) {
+    return {
+      name: "breadthfirst",
+      directed: true,
+      animate: true,
+      animationDuration: 500,
+      padding: 60,
+      spacingFactor: 1.8,
+      avoidOverlap: true,
+    };
+  } else {
+    return {
+      name: "cose",
+      animate: true,
+      animationDuration: 500,
+      nodeRepulsion: () => 6000,
+      idealEdgeLength: () => 100,
+      gravity: 0.4,
+      padding: 40,
+      randomize: false,
+      componentSpacing: 60,
+      nodeOverlap: 20,
+    };
+  }
+}
+
 export default function SupplyGraph({
   nodes,
   edges,
@@ -805,11 +858,11 @@ export default function SupplyGraph({
   }, [isOverview, isLogistics, isOrder, nodes, overviewEdges, detailEdges, selection, detailNodeIds, shipPlans, negotiations, analyticsMode]);
 
   // ── Compute a key to detect when we need to rebuild the graph ──
+  // Only track mode/analytics changes — element additions/removals are handled
+  // incrementally so the graph doesn't jump when nodes appear.
   const elementKey = useMemo(() => {
-    const mode = selection.mode;
-    const ids = elements.map((el) => el.data?.id ?? "").join(",");
-    return `${mode}::${analyticsMode}::${ids}`;
-  }, [selection.mode, analyticsMode, elements]);
+    return `${selection.mode}::${analyticsMode}`;
+  }, [selection.mode, analyticsMode]);
 
   // ── Build / rebuild Cytoscape ──
   useEffect(() => {
@@ -824,6 +877,7 @@ export default function SupplyGraph({
     if (cyRef.current) {
       // Just update elements incrementally
       const cy = cyRef.current;
+      
       const existingIds = new Set<string>();
       cy.elements().forEach((el: any) => { existingIds.add(el.id()); });
 
@@ -837,10 +891,17 @@ export default function SupplyGraph({
       // Add new elements — nodes first, then edges (to avoid referencing missing nodes)
       const newNodes = elements.filter((el) => !el.data?.source && el.data?.id && !existingIds.has(el.data.id as string));
       const newEdges = elements.filter((el) => el.data?.source && el.data?.id && !existingIds.has(el.data.id as string));
-      for (const el of newNodes) cy.add(el);
+      
+      // Add new nodes
+      for (const el of newNodes) {
+        cy.add(el);
+      }
+      
       // Re-read existing IDs after adding nodes
       const updatedIds = new Set<string>();
       cy.elements().forEach((e: any) => { updatedIds.add(e.id()); });
+      
+      // Add new edges
       for (const el of newEdges) {
         const src = el.data?.source as string;
         const tgt = el.data?.target as string;
@@ -849,63 +910,39 @@ export default function SupplyGraph({
         }
       }
 
+      // ── Run a targeted layout for new nodes ──
+      if (newNodes.length > 0 || newEdges.length > 0) {
+        const newNodeIds = new Set(newNodes.map((n) => n.data?.id as string).filter(Boolean));
+
+        // Lock existing nodes so they stay in place
+        cy.nodes().forEach((node: any) => {
+          if (!newNodeIds.has(node.id())) {
+            node.lock();
+          }
+        });
+
+        // Build layout options matching the current mode
+        const layoutOpts = getLayoutOpts(isOverview, isLogistics, isOrder);
+        layoutOpts.animate = true;
+        layoutOpts.animationDuration = 300;
+        layoutOpts.fit = false; // don't re-fit the viewport
+
+        cy.layout(layoutOpts).run();
+
+        // Unlock after layout animation finishes
+        setTimeout(() => {
+          cy.nodes().unlock();
+        }, 350);
+      }
+
       return;
     }
 
     // ── Fresh Cytoscape instance ──
     const stylesheet = buildStylesheet(selection.mode, analyticsMode);
 
-    // Choose layout based on mode
-    let layoutOpts: any;
-    if (isOverview) {
-      layoutOpts = {
-        name: "concentric",
-        concentric: (node: any) => {
-          const role = node.data("role");
-          if (role === "procurement") return 10;
-          if (role === "index") return 5;
-          return 1;
-        },
-        levelWidth: () => 1,
-        animate: true,
-        animationDuration: 500,
-        padding: 50,
-        minNodeSpacing: 60,
-      };
-    } else if (isLogistics) {
-      layoutOpts = {
-        name: "breadthfirst",
-        directed: true,
-        animate: true,
-        animationDuration: 500,
-        padding: 50,
-        spacingFactor: 1.5,
-        avoidOverlap: true,
-      };
-    } else if (isOrder) {
-      layoutOpts = {
-        name: "breadthfirst",
-        directed: true,
-        animate: true,
-        animationDuration: 500,
-        padding: 60,
-        spacingFactor: 1.8,
-        avoidOverlap: true,
-      };
-    } else {
-      layoutOpts = {
-        name: "cose",
-        animate: true,
-        animationDuration: 500,
-        nodeRepulsion: () => 6000,
-        idealEdgeLength: () => 100,
-        gravity: 0.4,
-        padding: 40,
-        randomize: false,
-        componentSpacing: 60,
-        nodeOverlap: 20,
-      };
-    }
+    // Choose layout based on mode (uses shared helper)
+    const layoutOpts = getLayoutOpts(isOverview, isLogistics, isOrder);
 
     const cy = cytoscape({
       container: containerRef.current,
