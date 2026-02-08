@@ -19,6 +19,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator
 
+from dotenv import load_dotenv
+
+# Load .env file so OPENAI_API_KEY (and other vars) are available
+load_dotenv()
+
 import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException

@@ -16,7 +16,7 @@ type SidebarTab = "navigator" | "messages" | "risks" | "report";
 const PROCUREMENT_URL = "http://localhost:6010";
 
 export default function App() {
-  const { events, connected, stopped, reconnect, disconnect, fetchHistory } = useWebSocket();
+  const { events, connected, stopped, reconnect, disconnect, fetchHistory, reset } = useWebSocket();
   const {
     nodes,
     edges,
@@ -84,6 +84,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Reset everything to initial state ──
+  const handleReset = useCallback(async () => {
+    setGraphSelection({ mode: "overview" });
+    setAnalyticsMode("none");
+    setActiveTab("messages");
+    didDisconnect.current = false;
+    await reset();
+  }, [reset]);
+
   const handleIntent = useCallback(async (intent: string) => {
     setSubmitting(true);
     try {
@@ -145,9 +154,9 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen flex-col bg-[#0f172a]">
+    <div className="flex h-screen flex-col bg-[#111111]">
       {/* ── Header ─────────────────────────────────────────── */}
-      <header className="flex shrink-0 items-center justify-between border-b border-slate-700/60 bg-slate-900/70 px-5 py-3 backdrop-blur-sm">
+      <header className="flex shrink-0 items-center justify-between border-b border-neutral-700/60 bg-neutral-900/70 px-5 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
             1C
@@ -176,9 +185,9 @@ export default function App() {
               Data frozen ({events.length} events)
             </span>
             <button
-              onClick={fetchHistory}
+              onClick={handleReset}
               className="rounded-md bg-slate-700/50 px-2 py-1 text-[0.6rem] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-slate-200"
-              title="Reload events from server"
+              title="Reset dashboard to initial state"
             >
               Reload
             </button>

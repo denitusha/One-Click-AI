@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import type { Core, ElementDefinition } from "cytoscape";
 import cytoscape from "cytoscape";
 import type {
@@ -106,7 +106,7 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "font-size": fontSize,
         color: "#e2e8f0",
         "text-margin-y": 10,
-        "background-color": "#1a2332",
+        "background-color": "#1c1c1c",
         "background-opacity": 1,
         "border-width": 3,
         "border-opacity": 0.7,
@@ -116,7 +116,7 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "text-wrap": "wrap",
         "text-max-width": isOverview ? "100px" : "90px",
         "text-background-opacity": 0.7,
-        "text-background-color": "#1e293b",
+        "text-background-color": "#222222",
         "text-background-padding": "4px",
         "text-background-shape": "roundrectangle",
         "corner-radius": 10,
@@ -125,7 +125,7 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
     {
       selector: 'node[role = "procurement"]',
       style: {
-        "background-color": "#1a2332",
+        "background-color": "#1c1c1c",
         "border-color": "#6366f1",
         shape: "round-rectangle" as any,
         width: isOverview ? 55 : 50,
@@ -141,7 +141,7 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
     {
       selector: 'node[role = "supplier"]',
       style: {
-        "background-color": "#1a2332",
+        "background-color": "#1c1c1c",
         "border-color": "#10b981",
         shape: "round-rectangle" as any,
         width: isOverview ? 50 : 45,
@@ -157,7 +157,7 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
     {
       selector: 'node[role = "logistics"]',
       style: {
-        "background-color": "#1a2332",
+        "background-color": "#1c1c1c",
         "border-color": "#ea580c",
         shape: "round-rectangle" as any,
         width: isOverview ? 50 : 45,
@@ -173,7 +173,7 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
     {
       selector: 'node[role = "index"]',
       style: {
-        "background-color": "#1a2332",
+        "background-color": "#1c1c1c",
         "border-color": "#ec4899",
         shape: "round-rectangle" as any,
         width: isOverview ? 50 : 45,
@@ -277,7 +277,7 @@ function buildStylesheet(mode: GraphSelection["mode"], analyticsMode: AnalyticsM
         "text-rotation": "autorotate",
         "text-margin-y": -10,
         "text-background-opacity": 0.8,
-        "text-background-color": "#0f172a",
+        "text-background-color": "#111111",
         "text-background-padding": "3px",
         opacity: 0.85,
       },
@@ -648,6 +648,59 @@ interface SupplyGraphProps {
   onBack: () => void;
 }
 
+/* ── Layout options helper (shared by fresh build & incremental updates) ── */
+function getLayoutOpts(isOverview: boolean, isLogistics: boolean, isOrder: boolean): any {
+  if (isOverview) {
+    return {
+      name: "concentric",
+      concentric: (node: any) => {
+        const role = node.data("role");
+        if (role === "procurement") return 10;
+        if (role === "index") return 5;
+        return 1;
+      },
+      levelWidth: () => 1,
+      animate: true,
+      animationDuration: 500,
+      padding: 50,
+      minNodeSpacing: 60,
+    };
+  } else if (isLogistics) {
+    return {
+      name: "breadthfirst",
+      directed: true,
+      animate: true,
+      animationDuration: 500,
+      padding: 50,
+      spacingFactor: 1.5,
+      avoidOverlap: true,
+    };
+  } else if (isOrder) {
+    return {
+      name: "breadthfirst",
+      directed: true,
+      animate: true,
+      animationDuration: 500,
+      padding: 60,
+      spacingFactor: 1.8,
+      avoidOverlap: true,
+    };
+  } else {
+    return {
+      name: "cose",
+      animate: true,
+      animationDuration: 500,
+      nodeRepulsion: () => 6000,
+      idealEdgeLength: () => 100,
+      gravity: 0.4,
+      padding: 40,
+      randomize: false,
+      componentSpacing: 60,
+      nodeOverlap: 20,
+    };
+  }
+}
+
 export default function SupplyGraph({
   nodes,
   edges,
@@ -663,6 +716,7 @@ export default function SupplyGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const prevElementKey = useRef("");
+  const [legendVisible, setLegendVisible] = useState(true);
 
   const isOverview = selection.mode === "overview";
   const isLogistics = selection.mode === "logistics-detail";
@@ -805,11 +859,11 @@ export default function SupplyGraph({
   }, [isOverview, isLogistics, isOrder, nodes, overviewEdges, detailEdges, selection, detailNodeIds, shipPlans, negotiations, analyticsMode]);
 
   // ── Compute a key to detect when we need to rebuild the graph ──
+  // Only track mode/analytics changes — element additions/removals are handled
+  // incrementally so the graph doesn't jump when nodes appear.
   const elementKey = useMemo(() => {
-    const mode = selection.mode;
-    const ids = elements.map((el) => el.data?.id ?? "").join(",");
-    return `${mode}::${analyticsMode}::${ids}`;
-  }, [selection.mode, analyticsMode, elements]);
+    return `${selection.mode}::${analyticsMode}`;
+  }, [selection.mode, analyticsMode]);
 
   // ── Build / rebuild Cytoscape ──
   useEffect(() => {
@@ -824,6 +878,7 @@ export default function SupplyGraph({
     if (cyRef.current) {
       // Just update elements incrementally
       const cy = cyRef.current;
+      
       const existingIds = new Set<string>();
       cy.elements().forEach((el: any) => { existingIds.add(el.id()); });
 
@@ -837,10 +892,17 @@ export default function SupplyGraph({
       // Add new elements — nodes first, then edges (to avoid referencing missing nodes)
       const newNodes = elements.filter((el) => !el.data?.source && el.data?.id && !existingIds.has(el.data.id as string));
       const newEdges = elements.filter((el) => el.data?.source && el.data?.id && !existingIds.has(el.data.id as string));
-      for (const el of newNodes) cy.add(el);
+      
+      // Add new nodes
+      for (const el of newNodes) {
+        cy.add(el);
+      }
+      
       // Re-read existing IDs after adding nodes
       const updatedIds = new Set<string>();
       cy.elements().forEach((e: any) => { updatedIds.add(e.id()); });
+      
+      // Add new edges
       for (const el of newEdges) {
         const src = el.data?.source as string;
         const tgt = el.data?.target as string;
@@ -849,63 +911,39 @@ export default function SupplyGraph({
         }
       }
 
+      // ── Run a targeted layout for new nodes ──
+      if (newNodes.length > 0 || newEdges.length > 0) {
+        const newNodeIds = new Set(newNodes.map((n) => n.data?.id as string).filter(Boolean));
+
+        // Lock existing nodes so they stay in place
+        cy.nodes().forEach((node: any) => {
+          if (!newNodeIds.has(node.id())) {
+            node.lock();
+          }
+        });
+
+        // Build layout options matching the current mode
+        const layoutOpts = getLayoutOpts(isOverview, isLogistics, isOrder);
+        layoutOpts.animate = true;
+        layoutOpts.animationDuration = 300;
+        layoutOpts.fit = false; // don't re-fit the viewport
+
+        cy.layout(layoutOpts).run();
+
+        // Unlock after layout animation finishes
+        setTimeout(() => {
+          cy.nodes().unlock();
+        }, 350);
+      }
+
       return;
     }
 
     // ── Fresh Cytoscape instance ──
     const stylesheet = buildStylesheet(selection.mode, analyticsMode);
 
-    // Choose layout based on mode
-    let layoutOpts: any;
-    if (isOverview) {
-      layoutOpts = {
-        name: "concentric",
-        concentric: (node: any) => {
-          const role = node.data("role");
-          if (role === "procurement") return 10;
-          if (role === "index") return 5;
-          return 1;
-        },
-        levelWidth: () => 1,
-        animate: true,
-        animationDuration: 500,
-        padding: 50,
-        minNodeSpacing: 60,
-      };
-    } else if (isLogistics) {
-      layoutOpts = {
-        name: "breadthfirst",
-        directed: true,
-        animate: true,
-        animationDuration: 500,
-        padding: 50,
-        spacingFactor: 1.5,
-        avoidOverlap: true,
-      };
-    } else if (isOrder) {
-      layoutOpts = {
-        name: "breadthfirst",
-        directed: true,
-        animate: true,
-        animationDuration: 500,
-        padding: 60,
-        spacingFactor: 1.8,
-        avoidOverlap: true,
-      };
-    } else {
-      layoutOpts = {
-        name: "cose",
-        animate: true,
-        animationDuration: 500,
-        nodeRepulsion: () => 6000,
-        idealEdgeLength: () => 100,
-        gravity: 0.4,
-        padding: 40,
-        randomize: false,
-        componentSpacing: 60,
-        nodeOverlap: 20,
-      };
-    }
+    // Choose layout based on mode (uses shared helper)
+    const layoutOpts = getLayoutOpts(isOverview, isLogistics, isOrder);
 
     const cy = cytoscape({
       container: containerRef.current,
@@ -1103,93 +1141,170 @@ export default function SupplyGraph({
         </div>
       )}
 
-      {/* ── Logistics detail legend ── */}
-      {isLogistics && (
-        <div className="absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-lg bg-slate-900/80 px-3 py-2 text-xs backdrop-blur-sm">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-orange-400" />
-            <span className="text-slate-300">Origin</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-slate-500" />
-            <span className="text-slate-300">Transit Hub</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-emerald-400" />
-            <span className="text-slate-300">Destination</span>
-          </span>
-          <span className="ml-2 border-l border-slate-600 pl-2 flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-3 border-orange-400" />
-            <span className="text-slate-300">Standard</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-3 border-red-400" />
-            <span className="text-slate-300">Express</span>
-          </span>
-        </div>
-      )}
+      {/* ── Unified Legend Panel ── */}
+      {legendVisible ? (
+        <div className="absolute bottom-3 right-3 z-10 w-48 rounded-lg bg-neutral-900/90 px-3.5 py-3 text-[0.65rem] shadow-lg backdrop-blur-sm">
+          {/* Hide button */}
+          <button
+            onClick={() => setLegendVisible(false)}
+            className="absolute top-2 right-2.5 flex items-center gap-1 text-[0.6rem] text-slate-500 transition-colors hover:text-slate-300"
+          >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7.5a11.72 11.72 0 013.168-4.477M6.343 6.343A9.972 9.972 0 0112 5c5 0 9.27 3.11 11 7.5a11.7 11.7 0 01-4.373 5.157M6.343 6.343L3 3m3.343 3.343l2.829 2.829m7.656 7.656l2.829 2.829M6.343 6.343l11.314 11.314" />
+            </svg>
+            Hide
+          </button>
 
-      {/* ── Order detail legend ── */}
-      {isOrder && (
-        <div className="absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-lg bg-slate-900/80 px-3 py-2 text-xs backdrop-blur-sm">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-sky-400" />
-            <span className="text-slate-300">RFQ</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-emerald-400" />
-            <span className="text-slate-300">Quote</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-dashed border-orange-400" />
-            <span className="text-slate-300">Counter</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-green-400" />
-            <span className="text-slate-300">Accept</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-cyan-400" />
-            <span className="text-slate-300">Order</span>
-          </span>
-        </div>
-      )}
+          {/* Node types */}
+          <div className="mb-2.5">
+            <div className="mb-1.5 text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500">
+              Node Types
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {isLogistics ? (
+                <>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm border-2 border-orange-500 bg-orange-400/20" />
+                    <span className="text-slate-300">Origin</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm border-2 border-slate-500 bg-slate-500/20" />
+                    <span className="text-slate-300">Transit Hub</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm border-2 border-emerald-500 bg-emerald-400/20" />
+                    <span className="text-slate-300">Destination</span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm border-2 border-indigo-500 bg-indigo-400/20" />
+                    <span className="text-slate-300">Procurement</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm border-2 border-emerald-500 bg-emerald-400/20" />
+                    <span className="text-slate-300">Supplier</span>
+                  </span>
+                  {!isOrder && (
+                    <>
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-3 w-3 rounded-sm border-2 border-orange-600 bg-orange-400/20" />
+                        <span className="text-slate-300">Logistics</span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-3 w-3 rounded-sm border-2 border-pink-500 bg-pink-400/20" />
+                        <span className="text-slate-300">Index</span>
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
 
-      {/* ── Default overview legend ── */}
-      {isOverview && (
-        <div className="absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-lg bg-slate-900/80 px-3 py-2 text-xs backdrop-blur-sm">
-          {Object.entries(ROLE_COLORS)
-            .filter(([role]) => role !== "hub" && role !== "step")
-            .map(([role, color]) => (
-              <span key={role} className="flex items-center gap-1.5">
-                <span
-                  className="inline-block h-3 w-3 rounded-sm"
-                  style={{
-                    backgroundColor: color,
-                    clipPath: role === "procurement" ? "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" : role === "logistics" ? "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" : undefined,
-                    borderRadius: role === "supplier" ? "50%" : role === "index" ? "3px" : undefined,
-                  }}
-                />
-                <span className="capitalize text-slate-300">{role}</span>
-              </span>
-            ))}
-          <span className="ml-2 border-l border-slate-600 pl-2 flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-dashed border-purple-400" />
-            <span className="text-slate-300">Discovery</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-sky-400" />
-            <span className="text-slate-300">RFQ/Quote</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-emerald-400" />
-            <span className="text-slate-300">Contract</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-orange-400" />
-            <span className="text-slate-300">Logistics</span>
-          </span>
+          {/* Edge types */}
+          <div>
+            <div className="mb-1.5 text-[0.6rem] font-semibold uppercase tracking-wider text-slate-500">
+              Edge Types
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {isLogistics ? (
+                <>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-orange-400" />
+                    <span className="text-slate-300">Standard Route</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-red-400" />
+                    <span className="text-slate-300">Express Route</span>
+                  </span>
+                </>
+              ) : isOrder ? (
+                <>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2" style={{ borderColor: "#38bdf8" }} />
+                    <span className="text-slate-300">RFQ</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2" style={{ borderColor: "#34d399" }} />
+                    <span className="text-slate-300">Quote</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "#fb923c" }} />
+                    <span className="text-slate-300">Counter</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-[3px]" style={{ borderColor: "#4ade80" }} />
+                    <span className="text-slate-300">Accept</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-[3px]" style={{ borderColor: "#22d3ee" }} />
+                    <span className="text-slate-300">Order</span>
+                  </span>
+                </>
+              ) : isOverview ? (
+                <>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2" style={{ borderColor: "#34d399" }} />
+                    <span className="text-slate-300">Material Flow</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "#4ade80" }} />
+                    <span className="text-slate-300">Contractual</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "#f97316" }} />
+                    <span className="text-slate-300">Routing Path</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-dotted" style={{ borderColor: "#a78bfa" }} />
+                    <span className="text-slate-300">Info Exchange</span>
+                  </span>
+                </>
+              ) : (
+                /* agent-detail */
+                <>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "#a78bfa" }} />
+                    <span className="text-slate-300">Discovery</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2" style={{ borderColor: "#38bdf8" }} />
+                    <span className="text-slate-300">RFQ</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2" style={{ borderColor: "#34d399" }} />
+                    <span className="text-slate-300">Quote</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "#fb923c" }} />
+                    <span className="text-slate-300">Counter</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-[3px]" style={{ borderColor: "#4ade80" }} />
+                    <span className="text-slate-300">Accept</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-5 border-t-[3px]" style={{ borderColor: "#22d3ee" }} />
+                    <span className="text-slate-300">Order</span>
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+      ) : (
+        <button
+          onClick={() => setLegendVisible(true)}
+          className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 rounded-lg bg-neutral-900/90 px-3 py-1.5 text-[0.6rem] font-medium text-slate-400 shadow-lg backdrop-blur-sm transition-colors hover:text-slate-200"
+        >
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          Show Legend
+        </button>
       )}
 
       {/* Empty state */}
