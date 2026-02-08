@@ -8,9 +8,10 @@ import ExecutionPlanPanel from "./components/ExecutionPlan";
 import IntentInput from "./components/IntentInput";
 import StatusBar from "./components/StatusBar";
 import GraphNavigator from "./components/GraphNavigator";
+import RiskAnalysis from "./components/RiskAnalysis";
 import type { GraphSelection, MessageLogEntry, AnalyticsMode } from "./types";
 
-type SidebarTab = "navigator" | "messages" | "report";
+type SidebarTab = "navigator" | "messages" | "risks" | "report";
 
 const PROCUREMENT_URL = "http://localhost:6010";
 
@@ -203,7 +204,7 @@ export default function App() {
 
       {/* ── Timeline bar ───────────────────────────────────── */}
       <div className="shrink-0 border-b border-slate-700/40 bg-slate-900/30">
-        <Timeline phases={timeline} />
+        <Timeline phases={timeline} cascadeComplete={cascadeComplete} />
       </div>
 
       {/* ── Main content area ──────────────────────────────── */}
@@ -287,6 +288,19 @@ export default function App() {
               )}
             </button>
             <button
+              onClick={() => setActiveTab("risks")}
+              className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wider transition-all ${
+                activeTab === "risks"
+                  ? "border-b-2 border-amber-400 text-amber-300 bg-amber-500/10"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+              }`}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              Risks
+            </button>
+            <button
               onClick={() => setActiveTab("report")}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-wider transition-all ${
                 activeTab === "report"
@@ -330,6 +344,26 @@ export default function App() {
                 </div>
                 <div className="min-h-0 flex-1 overflow-hidden">
                   <MessageFlow messages={messages} onSelectMessage={handleSelectMessage} />
+                </div>
+              </div>
+            )}
+            {activeTab === "risks" && (
+              <div className="flex h-full flex-col overflow-hidden">
+                <div className="flex shrink-0 items-center gap-2 border-b border-slate-700/30 px-4 py-2">
+                  <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Risk Analysis
+                  </h2>
+                </div>
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <RiskAnalysis
+                    nodes={nodes}
+                    orders={orders}
+                    negotiations={negotiations}
+                    shipPlans={shipPlans}
+                  />
                 </div>
               </div>
             )}
