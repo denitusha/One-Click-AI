@@ -16,7 +16,7 @@ type SidebarTab = "navigator" | "messages" | "risks" | "report";
 const PROCUREMENT_URL = "http://localhost:6010";
 
 export default function App() {
-  const { events, connected, stopped, reconnect, disconnect, fetchHistory } = useWebSocket();
+  const { events, connected, stopped, reconnect, disconnect, fetchHistory, clearEvents } = useWebSocket();
   const [submitting, setSubmitting] = useState(false);
   const [runId, setRunId] = useState<string | null>(
     () => sessionStorage.getItem("runId")  // restore on refresh
@@ -72,6 +72,13 @@ export default function App() {
     }
   }, [cascadeComplete, disconnect]);
 
+  // ── Reset didDisconnect flag when starting fresh ──
+  useEffect(() => {
+    if (!runId) {
+      didDisconnect.current = false;
+    }
+  }, [runId]);
+
   // ── On first mount, try HTTP fallback if WS doesn't connect quickly ──
   // This handles page refresh after cascade already completed.
   useEffect(() => {
@@ -87,6 +94,13 @@ export default function App() {
   }, []);
 
   const handleIntent = useCallback(async (intent: string) => {
+    // Reset for new run
+    sessionStorage.removeItem("runId");
+    setRunId(null);
+    didDisconnect.current = false;
+    reconnect(); // Create fresh WebSocket connection
+    
+    // Start new run
     setSubmitting(true);
     const newRunId = crypto.randomUUID();
     setRunId(newRunId);
@@ -102,12 +116,13 @@ export default function App() {
     } finally {
       setSubmitting(false);
     }
-  }, []);
+  }, [reconnect]);
 
   const handleReset = useCallback(() => {
     sessionStorage.removeItem("runId");
     setRunId(null);
-  }, []);
+    reconnect();
+  }, [reconnect]);
 
   // ── Graph drill-down callbacks ──
   const handleSelectAgent = useCallback((agentId: string) => {
@@ -176,7 +191,6 @@ export default function App() {
           eventCount={messages.length}
           nodeCount={nodes.length}
           edgeCount={edges.length}
-          onReconnect={reconnect}
         />
         {stopped && (
           <button
